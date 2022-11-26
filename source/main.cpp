@@ -1,4 +1,15 @@
 
+//
+// main.cpp
+// 
+// Author:
+//     Brian Sullender
+//     SULLE WAREHOUSE LLC
+// 
+// Description:
+//     This example program demonstrates creating a DPI aware application that uses JustCtrl controls alongside native controls.
+//
+
 #include "JustCtrl.h"
 
 class MAIN_WINDOW
@@ -7,7 +18,13 @@ public:
 	UINT DPI;
 	static bool Init(WNDPROC WndProc, HINSTANCE hInstance);
 	static MAIN_WINDOW* New(HINSTANCE hInstance);
+	HINSTANCE hInstance;
 	HWND hWnd;
+	FORM_CTRL MyCheckbox;
+	FORM_CTRL OkBtn;
+	FORM_CTRL* control_linked_list;
+	UINT control_count;
+	bool handleResize;
 };
 
 static MAIN_WINDOW* mainWindow;
@@ -16,17 +33,17 @@ bool MAIN_WINDOW::Init(WNDPROC WndProc, HINSTANCE hInstance)
 {
 	WNDCLASSEX wcex;
 
-	// Register the window class.
+	// Register the Main window class.
 
 	wcex.cbSize = sizeof(WNDCLASSEX);
 	wcex.style = CS_HREDRAW | CS_VREDRAW;
 	wcex.lpfnWndProc = WndProc;
 	wcex.cbClsExtra = 0;
-	wcex.cbWndExtra = 0;
+	wcex.cbWndExtra = sizeof(void*);
 	wcex.hInstance = hInstance;
 	wcex.hIcon = NULL;
 	wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wcex.hbrBackground = (HBRUSH)(COLOR_APPWORKSPACE + 1);
+	wcex.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
 	wcex.lpszMenuName = NULL;
 	wcex.lpszClassName = L"MainWindow";
 	wcex.hIconSm = NULL;
@@ -42,24 +59,74 @@ bool MAIN_WINDOW::Init(WNDPROC WndProc, HINSTANCE hInstance)
 
 MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 {
+	HWND hWnd;
 	MAIN_WINDOW* nwc;
+	int x, y;
+	int width, height;
 
-	nwc = (MAIN_WINDOW*)malloc(sizeof(MAIN_WINDOW));
-	if (nwc == nullptr)
-		return nullptr;
+	// Create the Main window.
 
-	// Create the Frame window.
-
-	nwc->hWnd = CreateWindowEx(WS_EX_OVERLAPPEDWINDOW, L"MainWindow", L"JustCtrl",
+	hWnd = CreateWindowEx(WS_EX_OVERLAPPEDWINDOW, L"MainWindow", L"JustCtrl Example",
 		WS_BORDER | WS_SYSMENU | WS_SIZEBOX | WS_MAXIMIZEBOX | WS_MINIMIZEBOX | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
-		0, 0, 1000, 600, NULL, NULL, hInstance, NULL);
+		0, 0, 500, 300, NULL, NULL, hInstance, NULL);
 
-	if (!nwc->hWnd)
+	if (!hWnd)
 		return nullptr;
 
-	nwc->DPI = JustCtrl_GetDpiForWindow(nwc->hWnd);
-	JustCtrl_CenterWindow(nwc->hWnd, JUSTCTRL_CENTER_CLIENT);
+	nwc = (MAIN_WINDOW*)GetWindowLongPtr(hWnd, 0);
+	if (!nwc)
+		return nullptr;
 
+	// Create a JustCtrl Checkbox.
+
+	nwc->MyCheckbox.x = 8;
+	nwc->MyCheckbox.y = 8;
+	nwc->MyCheckbox.width = 100;
+	nwc->MyCheckbox.height = 15;
+
+	x = MulDiv(nwc->MyCheckbox.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	y = MulDiv(nwc->MyCheckbox.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	width = MulDiv(nwc->MyCheckbox.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	height = MulDiv(nwc->MyCheckbox.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+
+	nwc->MyCheckbox.hWnd = CreateWindowEx(0, L"JustCtrl_Checkbox", L"My Checkbox",
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | BS_VCENTER,
+		x, y, width, height, nwc->hWnd, NULL, hInstance, NULL);
+
+	JustCtrl_SetAnchors(&nwc->MyCheckbox, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
+	JustCtrl_GetdefaultFont(&nwc->MyCheckbox.lpFont, nwc->DPI);
+	JustCtrl_ResizeFont(nwc->MyCheckbox.hWnd, nwc->DPI, &nwc->MyCheckbox.lpFont);
+
+	// Create a normal native windows button.
+
+	nwc->OkBtn.x = 418;
+	nwc->OkBtn.y = 270;
+	nwc->OkBtn.width = 74;
+	nwc->OkBtn.height = 22;
+
+	x = MulDiv(nwc->OkBtn.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	y = MulDiv(nwc->OkBtn.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	width = MulDiv(nwc->OkBtn.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	height = MulDiv(nwc->OkBtn.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+
+	nwc->OkBtn.hWnd = CreateWindowEx(0, WC_BUTTON, L"OK",
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS,
+		x, y, width, height, nwc->hWnd, NULL, hInstance, NULL);
+
+	JustCtrl_SetAnchors(&nwc->OkBtn, JUSTCTRL_ANCHOR_BOTTOM | JUSTCTRL_ANCHOR_RIGHT, nwc->DPI);
+	JustCtrl_GetdefaultFont(&nwc->OkBtn.lpFont, nwc->DPI);
+	JustCtrl_ResizeFont(nwc->OkBtn.hWnd, nwc->DPI, &nwc->MyCheckbox.lpFont);
+
+	// Setup the control linked list and count var.
+
+	nwc->control_linked_list = &nwc->MyCheckbox;
+	nwc->MyCheckbox.next = &nwc->OkBtn;
+
+	nwc->control_count = 2;
+
+	// Center and show the Main window.
+
+	JustCtrl_CenterWindow(nwc->hWnd, JUSTCTRL_CENTER_CLIENT);
 	ShowWindow(nwc->hWnd, SW_SHOWNORMAL);
 
 	return nwc;
@@ -70,11 +137,36 @@ LRESULT CALLBACK MainWindow_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 	HDC WinDC;
 	PAINTSTRUCT ps;
 
+	MAIN_WINDOW* pThisWindow = NULL;
+
 	switch (uMsg)
 	{
+	case WM_NCCREATE:
+	{
+		pThisWindow = (MAIN_WINDOW*)malloc(sizeof(MAIN_WINDOW));
+		if (pThisWindow != 0)
+		{
+			memset(pThisWindow, 0, sizeof(MAIN_WINDOW));
+
+			pThisWindow->hWnd = hWnd;
+			pThisWindow->hInstance = (HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE);
+			pThisWindow->DPI = JustCtrl_GetDpiForWindow(hWnd);
+
+			SetWindowLongPtr(hWnd, 0, (LONG_PTR)pThisWindow);
+		}
+		break;
+	}
 	case WM_DESTROY:
+	{
+		pThisWindow = (MAIN_WINDOW*)GetWindowLongPtr(hWnd, 0);
+		if (pThisWindow != 0)
+		{
+			free(pThisWindow);
+		}
+
 		PostQuitMessage(0);
 		return 0;
+	}
 	case WM_ERASEBKGND:
 	{
 		if (hWnd == WindowFromDC((HDC)wParam))
@@ -91,10 +183,10 @@ LRESULT CALLBACK MainWindow_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 		HBITMAP hMemoryBmp = CreateCompatibleBitmap(WinDC, ps.rcPaint.right, ps.rcPaint.bottom);
 		HBITMAP hOldBmp = (HBITMAP)SelectObject(bufferDC, hMemoryBmp);
 
-		RECT Temp;
-		GetClientRect(hWnd, &Temp);
+		RECT clientRect;
+		GetClientRect(hWnd, &clientRect);
 		HBRUSH hBrush = (HBRUSH)GetClassLongPtr(hWnd, GCLP_HBRBACKGROUND);
-		FillRect(bufferDC, &Temp, hBrush);
+		FillRect(bufferDC, &clientRect, hBrush);
 
 		BitBlt(WinDC, 0, 0, ps.rcPaint.right, ps.rcPaint.bottom, bufferDC, 0, 0, SRCCOPY);
 
@@ -112,6 +204,77 @@ LRESULT CALLBACK MainWindow_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 		// Code goes here ...
 
 		return 0;
+	}
+	case WM_DPICHANGED:
+	{
+		pThisWindow = (MAIN_WINDOW*)GetWindowLongPtr(hWnd, 0);
+		if (pThisWindow != 0)
+		{
+			pThisWindow->handleResize = false;
+			JustCtrl_WindowResizeHandler(hWnd, pThisWindow->control_linked_list, pThisWindow->control_count, HIWORD(wParam), true, (RECT*)lParam);
+			pThisWindow->handleResize = true;
+		}
+
+		break;
+	}
+	case WM_SIZE:
+	{
+		pThisWindow = (MAIN_WINDOW*)GetWindowLongPtr(hWnd, 0);
+		if (pThisWindow != 0)
+		{
+			if (pThisWindow->handleResize)
+			{
+				UINT monitorDpi = JustCtrl_GetDpiForWindow(hWnd);
+				RECT winArea;
+				GetWindowRect(hWnd, &winArea);
+				JustCtrl_WindowResizeHandler(hWnd, pThisWindow->control_linked_list, pThisWindow->control_count, monitorDpi, false, &winArea);
+			}
+		}
+
+		break;
+	}
+	case WM_CREATE:
+	{
+		CREATESTRUCT* lpCreateParams = (CREATESTRUCT*)lParam;
+
+		// Set width & height as windows client size.
+
+		pThisWindow = (MAIN_WINDOW*)GetWindowLongPtr(hWnd, 0);
+		if (pThisWindow != 0)
+		{
+			RECT winArea;
+			RECT clientArea;
+
+			GetWindowRect(hWnd, &winArea);
+			GetClientRect(hWnd, &clientArea);
+
+			int xExtra = winArea.right - winArea.left - clientArea.right;
+			int yExtra = winArea.bottom - winArea.top - clientArea.bottom;
+
+			clientArea.right = clientArea.left + MulDiv(lpCreateParams->cx, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI);
+			clientArea.bottom = clientArea.top + MulDiv(lpCreateParams->cy, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI);
+
+			int width = clientArea.right - clientArea.left;
+			int height = clientArea.bottom - clientArea.top;
+
+			SetWindowPos(hWnd, NULL, winArea.right, winArea.top,
+				width + xExtra, height + yExtra, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+			// ------------------- MONITOR FROM MOUSE ------------------- //
+
+			POINT xy;
+			HMONITOR hMonitor;
+
+			GetCursorPos(&xy);
+			hMonitor = MonitorFromPoint(xy, MONITOR_DEFAULTTONEAREST);
+			JustCtrl_MoveWindowToMonitor(hWnd, hMonitor);
+
+			// ---------------------------------------------------------- //
+
+			pThisWindow->handleResize = true;
+		}
+
+		break;
 	}
 	default:
 		break;

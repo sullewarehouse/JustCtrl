@@ -1,5 +1,20 @@
 
+//
+// JustCtrl.cpp
+// 
+// Author:
+//     Brian Sullender
+//     SULLE WAREHOUSE LLC
+// 
+// Description:
+//     The primary source file for JustCtrl. Contains initialize, window and DPI helper functions.
+//
+
 #include "JustCtrl.h"
+
+#include "checkbox.h"
+#include "label.h"
+#include "radiobutton.h"
 
 // Common controls dependencies.
 
@@ -113,6 +128,15 @@ DpiAwarenessSet:
 			MessageBox(NULL, L"Failed to register the common control classes.", L"Error!", MB_OK);
 	}
 
+	if (!JustCtrl_InitLabel(hInstance))
+	{
+	}
+
+	if (!JustCtrl_InitCheckbox(hInstance))
+	{
+
+	}
+
 	return true;
 }
 
@@ -130,6 +154,124 @@ UINT WINAPI JustCtrl_GetDpiForWindow(HWND hWnd)
 	}
 
 	return monitorDpi;
+}
+
+UINT WINAPI JustCtrl_GetDpiForMonitor(HMONITOR hMonitor)
+{
+	MONITORINFO mInfo;
+	UINT x_dpi, y_dpi;
+	double dxDpi, dyDpi;
+	UINT monitorDpi;
+
+	x_dpi = y_dpi = 0;
+	monitorDpi = 0;
+
+	if (pGetDpiForMonitor)
+	{
+		if (pGetDpiForMonitor(hMonitor, GUI_MDT_EFFECTIVE_DPI, &x_dpi, &y_dpi) == S_OK)
+		{
+			monitorDpi = y_dpi;
+		}
+	}
+
+	if (monitorDpi == 0)
+	{
+		memset(&mInfo, 0, sizeof(MONITORINFO));
+		mInfo.cbSize = sizeof(MONITORINFO);
+
+		if (GetMonitorInfo(hMonitor, &mInfo))
+		{
+			dxDpi = (((double)mInfo.rcMonitor.right - mInfo.rcMonitor.left) * (double)25.4) / (double)508;
+			dyDpi = (((double)mInfo.rcMonitor.bottom - mInfo.rcMonitor.top) * (double)25.4) / (double)285.75;
+
+			monitorDpi = (dxDpi > dyDpi) ? (UINT)dyDpi : (UINT)dxDpi;
+		}
+	}
+
+	return monitorDpi;
+}
+
+double WINAPI JustCtrl_DipsToPixels(double dips, double monitorDpi)
+{
+	return ((dips * monitorDpi) / JUSTCTRL_APPLICATION_DPI);
+}
+
+double WINAPI JustCtrl_PixelsToDips(double pixels, double monitorDpi)
+{
+	return pixels / (monitorDpi / JUSTCTRL_APPLICATION_DPI);
+}
+
+double WINAPI JustCtrl_AlignToDipsReturnPixels(double x, int* pDips, int monitorDpi, int round_mode)
+{
+	x = JustCtrl_PixelsToDips(x, monitorDpi);
+
+	if (round_mode > 0) x = ceil(x);
+	else if (round_mode < 0) x = floor(x);
+	else x = round(x);
+
+	if (pDips) *pDips = (int)x;
+	x = JustCtrl_DipsToPixels(x, monitorDpi);
+
+	return x;
+}
+
+void WINAPI JustCtrl_GetdefaultFont(LOGFONT* lpFont, UINT DPI)
+{
+	memset(lpFont, 0, sizeof(LOGFONT));
+	lpFont->lfWeight = 400;
+	lpFont->lfCharSet = 1;
+	lpFont->lfQuality = 5;
+	wcscpy_s(lpFont->lfFaceName, 32, L"Segoe UI");
+	//lpFont->lfHeight = MulDiv(12, DPI, 96);
+	lpFont->lfHeight = 11;
+}
+
+void WINAPI JustCtrl_ResizeFont(HWND hWnd, UINT monitorDpi, LOGFONT* lpFont)
+{
+	HFONT hFontOld;
+	HFONT hFontNew;
+	LOGFONT font;
+
+	hFontOld = GetWindowFont(hWnd);
+
+	if (lpFont != 0)
+	{
+		memcpy(&font, lpFont, sizeof(LOGFONT));
+		font.lfHeight = -MulDiv(lpFont->lfHeight, monitorDpi, JUSTCTRL_APPLICATION_DPI);
+		hFontNew = CreateFontIndirect(&font);
+		if (hFontNew)
+		{
+			DeleteObject(hFontOld);
+			SendMessage(hWnd, WM_SETFONT, (WPARAM)hFontNew, MAKELPARAM(TRUE, 0));
+		}
+	}
+}
+
+bool WINAPI JustCtrl_SetAnchors(FORM_CTRL* pFormCtrl, int anchors, UINT monitorDpi)
+{
+	HWND hWndParent;
+	RECT clientArea;
+	int width, height;
+
+	if (!pFormCtrl)
+		return false;
+
+	hWndParent = GetParent(pFormCtrl->hWnd);
+	if (!hWndParent)
+		return false;
+
+	GetClientRect(hWndParent, &clientArea);
+	width = (int)JustCtrl_PixelsToDips((clientArea.right - clientArea.left), monitorDpi);
+	height = (int)JustCtrl_PixelsToDips((clientArea.bottom - clientArea.top), monitorDpi);
+
+	pFormCtrl->xOffset = width - pFormCtrl->x;
+	pFormCtrl->yOffset = height - pFormCtrl->y;
+	pFormCtrl->wOffset = width - (pFormCtrl->x + pFormCtrl->width);
+	pFormCtrl->hOffset = height - (pFormCtrl->y + pFormCtrl->height);
+
+	pFormCtrl->anchors = anchors;
+
+	return true;
 }
 
 bool WINAPI JustCtrl_CenterWindow(HWND hWnd, ULONG centerFlags)
@@ -285,4 +427,131 @@ bool WINAPI JustCtrl_CenterWindow(HWND hWnd, ULONG centerFlags)
 	}
 
 	return false;
+}
+
+bool WINAPI JustCtrl_MoveWindowToMonitor(HWND hWnd, HMONITOR hMonitor)
+{
+	HMONITOR hOldMonitor;
+	MONITORINFOEX desInfoEx, srcInfoEx;
+	int xLoc, yLoc;
+	UINT old_monitorDpi, monitorDpi;
+	RECT winArea;
+
+	memset(&desInfoEx, 0, sizeof(MONITORINFOEX));
+	memset(&srcInfoEx, 0, sizeof(MONITORINFOEX));
+
+	desInfoEx.cbSize = sizeof(MONITORINFOEX);
+	srcInfoEx.cbSize = sizeof(MONITORINFOEX);
+
+	if (!GetMonitorInfo(hMonitor, &desInfoEx))
+		return false;
+
+	hOldMonitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+	if (!GetMonitorInfo(hOldMonitor, &srcInfoEx))
+		return false;
+
+	if (!GetWindowRect(hWnd, &winArea))
+		return false;
+
+	if ((desInfoEx.rcMonitor.left == srcInfoEx.rcMonitor.left) &&
+		(desInfoEx.rcMonitor.right == srcInfoEx.rcMonitor.right) &&
+		(desInfoEx.rcMonitor.top == srcInfoEx.rcMonitor.top) &&
+		(desInfoEx.rcMonitor.bottom == srcInfoEx.rcMonitor.bottom))
+	{
+		return true; // Its the same monitor.
+	}
+
+	old_monitorDpi = JustCtrl_GetDpiForMonitor(hOldMonitor);
+	monitorDpi = JustCtrl_GetDpiForMonitor(hMonitor);
+
+	// Get offsets for the current monitor.
+
+	xLoc = winArea.left - srcInfoEx.rcMonitor.left;
+	yLoc = winArea.top - srcInfoEx.rcMonitor.top;
+
+	// Adjust for the DPI of the new monitor.
+
+	xLoc = MulDiv(xLoc, monitorDpi, old_monitorDpi);
+	yLoc = MulDiv(yLoc, monitorDpi, old_monitorDpi);
+
+	// Make relative to the new monitor & move the window.
+
+	xLoc = desInfoEx.rcMonitor.left + xLoc;
+	yLoc = desInfoEx.rcMonitor.top + yLoc;
+
+	SetWindowPos(hWnd, nullptr, xLoc, yLoc, 0, 0,
+		SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+	return false;
+}
+
+void WINAPI JustCtrl_ResizeControls(HWND hWnd, FORM_CTRL* pControl_Linked_List, UINT ctrl_cnt, int monitorDpi, bool dpiChanged)
+{
+	FORM_CTRL* pFormCtrl;
+	int x, y, width, height;
+	RECT parentClientArea;
+
+	HDWP hdwp = BeginDeferWindowPos(ctrl_cnt);
+
+	pFormCtrl = pControl_Linked_List;
+	while (pFormCtrl)
+	{
+		if (dpiChanged)
+		{
+			JustCtrl_ResizeFont(pFormCtrl->hWnd, monitorDpi, &pFormCtrl->lpFont);
+		}
+
+		GetClientRect(hWnd, &parentClientArea);
+
+		if (pFormCtrl->anchors & JUSTCTRL_ANCHOR_LEFT)
+			x = MulDiv(pFormCtrl->x, monitorDpi, JUSTCTRL_APPLICATION_DPI);
+		else
+			x = (parentClientArea.right - parentClientArea.left) - MulDiv(pFormCtrl->xOffset, monitorDpi, JUSTCTRL_APPLICATION_DPI);
+
+		if (pFormCtrl->anchors & JUSTCTRL_ANCHOR_TOP)
+			y = MulDiv(pFormCtrl->y, monitorDpi, JUSTCTRL_APPLICATION_DPI);
+		else
+			y = (parentClientArea.bottom - parentClientArea.top) - MulDiv(pFormCtrl->yOffset, monitorDpi, JUSTCTRL_APPLICATION_DPI);
+
+		if (!(pFormCtrl->anchors & JUSTCTRL_ANCHOR_RIGHT))
+			width = MulDiv(pFormCtrl->width, monitorDpi, JUSTCTRL_APPLICATION_DPI);
+		else
+			width = ((parentClientArea.right - parentClientArea.left) - x) - MulDiv(pFormCtrl->wOffset, monitorDpi, JUSTCTRL_APPLICATION_DPI);
+
+		if (!(pFormCtrl->anchors & JUSTCTRL_ANCHOR_BOTTOM))
+			height = MulDiv(pFormCtrl->height, monitorDpi, JUSTCTRL_APPLICATION_DPI);
+		else
+			height = ((parentClientArea.bottom - parentClientArea.top) - y) - MulDiv(pFormCtrl->hOffset, monitorDpi, JUSTCTRL_APPLICATION_DPI);
+
+		DeferWindowPos(hdwp, pFormCtrl->hWnd, NULL, x, y, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
+
+		pFormCtrl = pFormCtrl->next;
+	}
+
+	EndDeferWindowPos(hdwp);
+}
+
+void WINAPI JustCtrl_WindowResizeHandler(HWND hWnd, FORM_CTRL* pControl_Linked_List, UINT ctrl_cnt, int monitorDpi, bool dpiChanged, RECT* pNewScale)
+{
+	RECT localScale;
+
+	if (pNewScale == 0)
+	{
+		GetWindowRect(hWnd, &localScale);
+		pNewScale = &localScale;
+
+		SetWindowPos(hWnd, nullptr, 0, 0, 0, 0,
+			SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOACTIVATE);
+	}
+	else
+	{
+		if (dpiChanged)
+		{
+			SetWindowPos(hWnd, nullptr, pNewScale->left, pNewScale->top,
+				pNewScale->right - pNewScale->left, pNewScale->bottom - pNewScale->top,
+				SWP_NOZORDER | SWP_NOACTIVATE);
+		}
+	}
+
+	JustCtrl_ResizeControls(hWnd, pControl_Linked_List, ctrl_cnt, monitorDpi, dpiChanged);
 }

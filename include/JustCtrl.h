@@ -1,14 +1,42 @@
 
+//
+// JustCtrl.h
+// 
+// Author:
+//     Brian Sullender
+//     SULLE WAREHOUSE LLC
+// 
+// Description:
+//     The primary header file for JustCtrl. Include this in your project source files.
+//
+
+#ifndef JUSTCTRL_H
+#define JUSTCTRL_H
+
 #include <Windows.h>
+#include <windowsx.h>
 #include <CommCtrl.h>
+#include <stdio.h>
+#include <ShlObj.h>
+#include <math.h>
+#include <Uxtheme.h>
+#include <vssym32.h>
+#include <wingdi.h>
+#include <objidl.h>
+#include <gdiplus.h>
+
+#pragma comment (lib, "Shell32.lib")
+#pragma comment (lib, "UxTheme.lib")
+#pragma comment (lib, "Gdiplus.lib")
+#pragma comment (lib, "Msimg32.lib")
 
 // Version # 1.0
 
-#define JUSTCTRL_VERSION                   10
+#define JUSTCTRL_VERSION                    10
 
 // DPI for the application.
 
-#define JUSTCTRL_APPLICATION_DPI           96
+#define JUSTCTRL_APPLICATION_DPI            96
 
 // Center flag options.
 
@@ -16,6 +44,13 @@
 #define JUSTCTRL_CENTER_CLIENT              0x30000
 #define JUSTCTRL_CENTER_OVER_WORKAREA       0x40000
 #define JUSTCTRL_CENTER_WITH_OWNER          0x80000
+
+// Anchor flag options.
+
+#define JUSTCTRL_ANCHOR_TOP                 1
+#define JUSTCTRL_ANCHOR_BOTTOM              2
+#define JUSTCTRL_ANCHOR_LEFT                4
+#define JUSTCTRL_ANCHOR_RIGHT               8
 
 // define WM_DPICHANGED when it doesn't exist.
 
@@ -59,8 +94,39 @@ typedef BOOL(WINAPI* SetProcessDpiAwarenessContext_proc)(GUI_DPI_AWARENESS_CONTE
 typedef BOOL(WINAPI* EnableNonClientDpiScaling_proc)(HWND hWnd);
 typedef BOOL(WINAPI* AdjustWindowRectExForDpi_proc)(LPRECT lpRect, DWORD dwStyle, BOOL bMenu, DWORD dwExStyle, UINT dpi);
 
-// JustCtrl Functions
+// Common control class.
+
+typedef class _FORM_CTRL FORM_CTRL;
+class _FORM_CTRL
+{
+public:
+	HWND hWnd;
+	int x;
+	int y;
+	int width;
+	int height;
+	int anchors;
+	int xOffset;
+	int yOffset;
+	int wOffset;
+	int hOffset;
+	LOGFONT lpFont;
+	FORM_CTRL* next;
+};
+
+// JustCtrl Functions.
 
 bool WINAPI JustCtrl_Init(HINSTANCE hInstance, bool report);
 UINT WINAPI JustCtrl_GetDpiForWindow(HWND hWnd);
+UINT WINAPI JustCtrl_GetDpiForMonitor(HMONITOR hMonitor);
+double WINAPI JustCtrl_DipsToPixels(double dips, double monitorDpi);
+double WINAPI JustCtrl_PixelsToDips(double pixels, double monitorDpi);
+double WINAPI JustCtrl_AlignToDipsReturnPixels(double x, int* pDips, int monitorDpi, int round_mode);
+void WINAPI JustCtrl_GetdefaultFont(LOGFONT* lpFont, UINT DPI);
+void WINAPI JustCtrl_ResizeFont(HWND hWnd, UINT monitorDpi, LOGFONT* lpFont);
+bool WINAPI JustCtrl_SetAnchors(FORM_CTRL* pFormCtrl, int anchors, UINT monitorDpi);
 bool WINAPI JustCtrl_CenterWindow(HWND hWnd, ULONG centerFlags);
+bool WINAPI JustCtrl_MoveWindowToMonitor(HWND hWnd, HMONITOR hMonitor);
+void WINAPI JustCtrl_WindowResizeHandler(HWND hWnd, FORM_CTRL* pControl_Linked_List, UINT ctrl_cnt, int monitorDpi, bool dpiChanged, RECT* pNewScale);
+
+#endif // !JUSTCTRL_H
