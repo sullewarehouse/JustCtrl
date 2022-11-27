@@ -25,34 +25,29 @@ struct JUSTCTRL_CHECKBOX
 	int state;
 };
 
-CHECKBOXSTATES WINAPI GetCheckboxStyle(HWND hWnd)
+int WINAPI GetCheckboxStyle(HWND hWnd)
 {
 	JUSTCTRL_CHECKBOX* pCheckbox;
-	CHECKBOXSTATES cbStyle = CBS_UNCHECKEDNORMAL;
+	int cbStyle = 1;
 
 	pCheckbox = (JUSTCTRL_CHECKBOX*)GetWindowLongPtr(hWnd, 0);
 	if (pCheckbox != 0)
 	{
-		if (pCheckbox->state == BST_UNCHECKED)
+		if (!IsWindowEnabled(hWnd))
+			cbStyle += 3;
+		else
 		{
-			if (pCheckbox->hot)
-				cbStyle = CBS_UNCHECKEDHOT;
+			if (pCheckbox->state == BST_CHECKED)
+				cbStyle += 4;
+			else if (pCheckbox->state == BST_INDETERMINATE)
+				cbStyle += 8;
+			if (pCheckbox->lbuttonDown)
+				cbStyle += 2;
 			else
-				cbStyle = CBS_UNCHECKEDNORMAL;
-		}
-		else if (pCheckbox->state == BST_CHECKED)
-		{
-			if (pCheckbox->hot)
-				cbStyle = CBS_CHECKEDHOT;
-			else
-				cbStyle = CBS_CHECKEDNORMAL;
-		}
-		else if (pCheckbox->state == BST_INDETERMINATE)
-		{
-			if (pCheckbox->hot)
-				cbStyle = CBS_MIXEDHOT;
-			else
-				cbStyle = CBS_MIXEDNORMAL;
+			{
+				if (pCheckbox->hot)
+					cbStyle += 1;
+			}
 		}
 	}
 
@@ -61,8 +56,10 @@ CHECKBOXSTATES WINAPI GetCheckboxStyle(HWND hWnd)
 
 void WINAPI DrawCheckboxCtrl(HWND hWnd, HDC hDC)
 {
+	HWND hWndParent;
 	RECT rect;
 	RECT ClientArea;
+	HBRUSH hBrush;
 	HFONT hFont;
 	HFONT hOldFont;
 	SIZE size;
@@ -80,12 +77,15 @@ void WINAPI DrawCheckboxCtrl(HWND hWnd, HDC hDC)
 
 	GetClientRect(hWnd, &ClientArea);
 
-	hTheme = OpenThemeData(hWnd, L"BUTTON");
+	hWndParent = GetParent(hWnd);
+	hBrush = (HBRUSH)SendMessage(hWndParent, WM_CTLCOLORBTN, (WPARAM)hDC, (LPARAM)hWnd);
+	if (!hBrush)
+		DrawThemeParentBackground(hWnd, hDC, NULL);
+	else
+		FillRect(hDC, &ClientArea, hBrush);
 
-	//if (wcscmp(pCheckbox->BackgroundColor, L"Transparent") == 0)
-	// DrawThemeParentBackground(pFormCtrl->hWnd, hDC, NULL);
-	//else
-	//FillRect(hDC, &ClientArea, pCheckbox->BackgroundBrush);
+	hTheme = OpenThemeData(hWnd, L"BUTTON");
+	if (!hTheme) return;
 
 	hFont = (HFONT)SendMessage(hWnd, WM_GETFONT, 0, 0);
 	hOldFont = (HFONT)SelectObject(hDC, hFont);
@@ -168,13 +168,6 @@ void WINAPI DrawCheckboxCtrl(HWND hWnd, HDC hDC)
 			rect.bottom = (ClientArea.bottom - ClientArea.top);
 			rect.top = rect.bottom - min_y;
 		}
-
-		//if (wcscmp(pCheckbox->ForegroundColor, L"Transparent") == 0)
-		// SetBkColor(hDC, TRANSPARENT);
-		//else
-		//SetBkColor(hDC, pCheckbox->ForegroundColorData);
-
-		//SetTextColor(hDC, pCheckbox->TextColorData);
 
 		DrawText(hDC, pStrText, -1, &rect, DT_SINGLELINE | DT_VCENTER | dtFormat);
 		free(pStrText);

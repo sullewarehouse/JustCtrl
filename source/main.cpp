@@ -20,7 +20,9 @@ public:
 	static MAIN_WINDOW* New(HINSTANCE hInstance);
 	HINSTANCE hInstance;
 	HWND hWnd;
-	FORM_CTRL MyCheckbox;
+	FORM_CTRL cbHide;
+	FORM_CTRL rbRed;
+	FORM_CTRL rbBlue;
 	FORM_CTRL OkBtn;
 	FORM_CTRL* control_linked_list;
 	UINT control_count;
@@ -79,23 +81,63 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 
 	// Create a JustCtrl Checkbox.
 
-	nwc->MyCheckbox.x = 8;
-	nwc->MyCheckbox.y = 8;
-	nwc->MyCheckbox.width = 100;
-	nwc->MyCheckbox.height = 15;
+	nwc->cbHide.x = 8;
+	nwc->cbHide.y = 8;
+	nwc->cbHide.width = 100;
+	nwc->cbHide.height = 15;
 
-	x = MulDiv(nwc->MyCheckbox.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	y = MulDiv(nwc->MyCheckbox.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	width = MulDiv(nwc->MyCheckbox.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	height = MulDiv(nwc->MyCheckbox.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	x = MulDiv(nwc->cbHide.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	y = MulDiv(nwc->cbHide.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	width = MulDiv(nwc->cbHide.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	height = MulDiv(nwc->cbHide.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
 
-	nwc->MyCheckbox.hWnd = CreateWindowEx(0, L"JustCtrl_Checkbox", L"My Checkbox",
+	nwc->cbHide.hWnd = CreateWindowEx(0, L"JustCtrl_Checkbox", L"Hide Shape",
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | BS_VCENTER | WS_TABSTOP,
+		x, y, width, height, nwc->hWnd, NULL, hInstance, NULL);
+
+	JustCtrl_SetAnchors(&nwc->cbHide, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
+	JustCtrl_GetdefaultFont(&nwc->cbHide.lpFont, nwc->DPI);
+	JustCtrl_ResizeFont(nwc->cbHide.hWnd, nwc->DPI, &nwc->cbHide.lpFont);
+
+	// Create 2 JustCtrl RadioButtons (Red, Blue).
+
+	nwc->rbRed.x = 8;
+	nwc->rbRed.y = 31;
+	nwc->rbRed.width = 100;
+	nwc->rbRed.height = 15;
+
+	x = MulDiv(nwc->rbRed.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	y = MulDiv(nwc->rbRed.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	width = MulDiv(nwc->rbRed.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	height = MulDiv(nwc->rbRed.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+
+	nwc->rbRed.hWnd = CreateWindowEx(0, L"JustCtrl_RadioButton", L"Red",
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | BS_VCENTER | WS_GROUP | WS_TABSTOP,
+		x, y, width, height, nwc->hWnd, NULL, hInstance, NULL);
+
+	JustCtrl_SetAnchors(&nwc->rbRed, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
+	JustCtrl_GetdefaultFont(&nwc->rbRed.lpFont, nwc->DPI);
+	JustCtrl_ResizeFont(nwc->rbRed.hWnd, nwc->DPI, &nwc->rbRed.lpFont);
+
+	// ---- Blue ---- //
+
+	nwc->rbBlue.x = 8;
+	nwc->rbBlue.y = 54;
+	nwc->rbBlue.width = 100;
+	nwc->rbBlue.height = 15;
+
+	x = MulDiv(nwc->rbBlue.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	y = MulDiv(nwc->rbBlue.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	width = MulDiv(nwc->rbBlue.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	height = MulDiv(nwc->rbBlue.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+
+	nwc->rbBlue.hWnd = CreateWindowEx(0, L"JustCtrl_RadioButton", L"Blue",
 		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | BS_VCENTER,
 		x, y, width, height, nwc->hWnd, NULL, hInstance, NULL);
 
-	JustCtrl_SetAnchors(&nwc->MyCheckbox, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
-	JustCtrl_GetdefaultFont(&nwc->MyCheckbox.lpFont, nwc->DPI);
-	JustCtrl_ResizeFont(nwc->MyCheckbox.hWnd, nwc->DPI, &nwc->MyCheckbox.lpFont);
+	JustCtrl_SetAnchors(&nwc->rbBlue, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
+	JustCtrl_GetdefaultFont(&nwc->rbBlue.lpFont, nwc->DPI);
+	JustCtrl_ResizeFont(nwc->rbBlue.hWnd, nwc->DPI, &nwc->rbBlue.lpFont);
 
 	// Create a normal native windows button.
 
@@ -110,19 +152,21 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 	height = MulDiv(nwc->OkBtn.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
 
 	nwc->OkBtn.hWnd = CreateWindowEx(0, WC_BUTTON, L"OK",
-		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS,
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_GROUP | WS_TABSTOP,
 		x, y, width, height, nwc->hWnd, NULL, hInstance, NULL);
 
 	JustCtrl_SetAnchors(&nwc->OkBtn, JUSTCTRL_ANCHOR_BOTTOM | JUSTCTRL_ANCHOR_RIGHT, nwc->DPI);
 	JustCtrl_GetdefaultFont(&nwc->OkBtn.lpFont, nwc->DPI);
-	JustCtrl_ResizeFont(nwc->OkBtn.hWnd, nwc->DPI, &nwc->MyCheckbox.lpFont);
+	JustCtrl_ResizeFont(nwc->OkBtn.hWnd, nwc->DPI, &nwc->OkBtn.lpFont);
 
 	// Setup the control linked list and count var.
 
-	nwc->control_linked_list = &nwc->MyCheckbox;
-	nwc->MyCheckbox.next = &nwc->OkBtn;
+	nwc->control_linked_list = &nwc->cbHide;
+	nwc->cbHide.next = &nwc->rbRed;
+	nwc->rbRed.next = &nwc->rbBlue;
+	nwc->rbBlue.next = &nwc->OkBtn;
 
-	nwc->control_count = 2;
+	nwc->control_count = 4;
 
 	// Center and show the Main window.
 

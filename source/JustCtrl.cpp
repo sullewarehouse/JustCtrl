@@ -128,11 +128,16 @@ DpiAwarenessSet:
 			MessageBox(NULL, L"Failed to register the common control classes.", L"Error!", MB_OK);
 	}
 
+	if (!JustCtrl_InitCheckbox(hInstance))
+	{
+
+	}
+
 	if (!JustCtrl_InitLabel(hInstance))
 	{
 	}
 
-	if (!JustCtrl_InitCheckbox(hInstance))
+	if (!JustCtrl_InitRadioButton(hInstance))
 	{
 
 	}
