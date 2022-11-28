@@ -21,7 +21,6 @@ struct JUSTCTRL_CHECKBOX
 	bool lbuttonDown;
 	bool trackingMouse;
 	bool hot;
-	bool triState;
 	int state;
 };
 
@@ -37,9 +36,9 @@ int WINAPI GetCheckboxStyle(HWND hWnd)
 			cbStyle += 3;
 		else
 		{
-			if (pCheckbox->state == BST_CHECKED)
+			if (pCheckbox->state == CHECKBOX_CHECKED)
 				cbStyle += 4;
-			else if (pCheckbox->state == BST_INDETERMINATE)
+			else if (pCheckbox->state == CHECKBOX_INDETERMINATE)
 				cbStyle += 8;
 			if (pCheckbox->lbuttonDown)
 				cbStyle += 2;
@@ -72,7 +71,6 @@ void WINAPI DrawCheckboxCtrl(HWND hWnd, HDC hDC)
 	SIZE cbSize;
 	double averageWidth;
 	double checkboxSpacing;
-	int min_x;
 	int min_y;
 
 	GetClientRect(hWnd, &ClientArea);
@@ -114,24 +112,23 @@ void WINAPI DrawCheckboxCtrl(HWND hWnd, HDC hDC)
 		}
 	}
 
-	min_x = (int)checkboxSpacing + rect.right;
 	min_y = (cbSize.cy < rect.bottom) ? rect.bottom : cbSize.cy;
 
 	rect.left = 0;
 	rect.right = rect.left + cbSize.cx;
 
 	dwStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
-	if ((dwStyle & 0xC00) == BS_TOP)
+	if ((dwStyle & 0x000C) == CHECKBOX_TOP)
 	{
 		rect.top = (cbSize.cy < min_y) ? ((min_y - cbSize.cy) / 2) : 0;
 		rect.bottom = rect.top + cbSize.cy;
 	}
-	else if ((dwStyle & 0xC00) == BS_VCENTER)
+	else if ((dwStyle & 0x000C) == CHECKBOX_VCENTER)
 	{
 		rect.top = ((ClientArea.bottom - ClientArea.top)) / 2 - (cbSize.cy / 2);
 		rect.bottom = rect.top + cbSize.cy;
 	}
-	else if ((dwStyle & 0xC00) == BS_BOTTOM)
+	else if ((dwStyle & 0x000C) == CHECKBOX_BOTTOM)
 	{
 		rect.bottom = (ClientArea.bottom - ClientArea.top);
 		rect.bottom -= (cbSize.cy < min_y) ? ((min_y - cbSize.cy) / 2) : 0;
@@ -146,28 +143,38 @@ void WINAPI DrawCheckboxCtrl(HWND hWnd, HDC hDC)
 		rect.right = ClientArea.right;
 
 		dtFormat = 0;
-		if ((dwStyle & 0x300) == BS_LEFT)
+		if ((dwStyle & 0x0003) == CHECKBOX_LEFT)
 			dtFormat |= DT_LEFT;
-		else if ((dwStyle & 0x300) == BS_CENTER)
+		else if ((dwStyle & 0x0003) == CHECKBOX_CENTER)
 			dtFormat |= DT_CENTER;
-		else if ((dwStyle & 0x300) == BS_RIGHT)
+		else if ((dwStyle & 0x0003) == CHECKBOX_RIGHT)
 			dtFormat |= DT_RIGHT;
 
-		if ((dwStyle & 0xC00) == BS_TOP)
+		if ((dwStyle & 0x000C) == CHECKBOX_TOP)
 		{
 			rect.top = 0;
 			rect.bottom = rect.top + min_y;
 		}
-		else if ((dwStyle & 0xC00) == BS_VCENTER)
+		else if ((dwStyle & 0x000C) == CHECKBOX_VCENTER)
 		{
 			rect.top = ((ClientArea.bottom - ClientArea.top)) / 2 - (min_y / 2);
 			rect.bottom = rect.top + min_y;
 		}
-		else if ((dwStyle & 0xC00) == BS_BOTTOM)
+		else if ((dwStyle & 0x000C) == CHECKBOX_BOTTOM)
 		{
 			rect.bottom = (ClientArea.bottom - ClientArea.top);
 			rect.top = rect.bottom - min_y;
 		}
+
+		if ((dwStyle & 0x0030) == CHECKBOX_NOPREFIX)
+			dtFormat |= DT_NOPREFIX;
+		else if ((dwStyle & 0x0030) == CHECKBOX_HIDEPREFIX)
+			dtFormat |= DT_HIDEPREFIX;
+		else if ((dwStyle & 0x0030) == CHECKBOX_PREFIXONLY)
+			dtFormat |= DT_PREFIXONLY;
+
+		if (dwStyle & CHECKBOX_RTLREADING)
+			dtFormat |= DT_RTLREADING;
 
 		DrawText(hDC, pStrText, -1, &rect, DT_SINGLELINE | DT_VCENTER | dtFormat);
 		free(pStrText);
@@ -304,22 +311,27 @@ LRESULT CALLBACK Checkbox_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 			if (lbuttonDown)
 			{
-				// Notify parent!
+				DWORD dwStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
+				if (dwStyle & CHECKBOX_AUTO)
+				{
+					if (dwStyle & CHECKBOX_3STATE)
+					{
+						if (pCheckbox->state == 2)
+							pCheckbox->state = 0;
+						else
+							pCheckbox->state++;
+					}
+					else
+					{
+						if (pCheckbox->state == 1)
+							pCheckbox->state = 0;
+						else
+							pCheckbox->state++;
+					}
+				}
 
-				if (pCheckbox->triState)
-				{
-					if (pCheckbox->state == 2)
-						pCheckbox->state = 0;
-					else
-						pCheckbox->state++;
-				}
-				else
-				{
-					if (pCheckbox->state == 1)
-						pCheckbox->state = 0;
-					else
-						pCheckbox->state++;
-				}
+				HWND hWndParent = GetParent(hWnd);
+				SendMessage(hWndParent, WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(hWnd), CHECKBOX_CLICKED), (LPARAM)hWnd);
 			}
 
 			InvalidateRect(hWnd, NULL, FALSE);
@@ -350,6 +362,45 @@ LRESULT CALLBACK Checkbox_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
 			pCheckbox->hot = false;
 
 			InvalidateRect(hWnd, NULL, FALSE);
+		}
+
+		return 0;
+	}
+	case WM_SETFOCUS:
+	{
+		HWND hWndParent = GetParent(hWnd);
+		SendMessage(hWndParent, WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(hWnd), CHECKBOX_SETFOCUS), (LPARAM)hWnd);
+
+		return 0;
+	}
+	case WM_KILLFOCUS:
+	{
+		HWND hWndParent = GetParent(hWnd);
+		SendMessage(hWndParent, WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(hWnd), CHECKBOX_KILLFOCUS), (LPARAM)hWnd);
+
+		return 0;
+	}
+	case CHECKBOX_GETCHECK:
+	{
+		pCheckbox = (JUSTCTRL_CHECKBOX*)GetWindowLongPtr(hWnd, 0);
+		if (pCheckbox)
+		{
+			return pCheckbox->state;
+		}
+
+		return 0;
+	}
+	case CHECKBOX_SETCHECK:
+	{
+		pCheckbox = (JUSTCTRL_CHECKBOX*)GetWindowLongPtr(hWnd, 0);
+		if (pCheckbox)
+		{
+			pCheckbox->state = (int)LOWORD(wParam);
+
+			if ((bool)HIWORD(wParam) == true)
+			{
+				InvalidateRect(hWnd, NULL, FALSE);
+			}
 		}
 
 		return 0;

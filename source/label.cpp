@@ -24,6 +24,103 @@ struct JUSTCTRL_LABEL
 
 void WINAPI DrawLabelCtrl(HWND hWnd, HDC hDC)
 {
+	HWND hWndParent;
+	RECT rect;
+	RECT ClientArea;
+	HBRUSH hBrush;
+	HFONT hFont;
+	HFONT hOldFont;
+	size_t strLength;
+	WCHAR* pStrText;
+	DWORD dwStyle;
+	UINT dtFormat;
+	int min_y;
+
+	GetClientRect(hWnd, &ClientArea);
+
+	hWndParent = GetParent(hWnd);
+	hBrush = (HBRUSH)SendMessage(hWndParent, WM_CTLCOLORSTATIC, (WPARAM)hDC, (LPARAM)hWnd);
+	if (!hBrush)
+		DrawThemeParentBackground(hWnd, hDC, NULL);
+	else
+		FillRect(hDC, &ClientArea, hBrush);
+
+	hFont = (HFONT)SendMessage(hWnd, WM_GETFONT, 0, 0);
+	hOldFont = (HFONT)SelectObject(hDC, hFont);
+
+	rect.left = 0;
+	rect.right = 0;
+	rect.top = 0;
+	rect.bottom = 0;
+
+	strLength = GetWindowTextLength(hWnd) + 1;
+	pStrText = (WCHAR*)malloc(strLength * sizeof(WCHAR));
+	if (pStrText != NULL)
+	{
+		if (GetWindowText(hWnd, pStrText, (int)strLength) != 0)
+		{
+			DrawText(hDC, pStrText, -1, &rect, DT_CALCRECT | DT_SINGLELINE | DT_LEFT);
+		}
+	}
+
+	min_y = rect.bottom;
+
+	dwStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
+
+	if (pStrText != NULL)
+	{
+		rect.left = 0;
+		rect.right = ClientArea.right;
+
+		dtFormat = 0;
+		if ((dwStyle & 0x0003) == LABEL_LEFT)
+			dtFormat |= DT_LEFT;
+		else if ((dwStyle & 0x0003) == LABEL_CENTER)
+			dtFormat |= DT_CENTER;
+		else if ((dwStyle & 0x0003) == LABEL_RIGHT)
+			dtFormat |= DT_RIGHT;
+
+		if ((dwStyle & 0x000C) == LABEL_TOP)
+		{
+			rect.top = 0;
+			rect.bottom = rect.top + min_y;
+		}
+		else if ((dwStyle & 0x000C) == LABEL_VCENTER)
+		{
+			rect.top = ((ClientArea.bottom - ClientArea.top)) / 2 - (min_y / 2);
+			rect.bottom = rect.top + min_y;
+		}
+		else if ((dwStyle & 0x000C) == LABEL_BOTTOM)
+		{
+			rect.bottom = (ClientArea.bottom - ClientArea.top);
+			rect.top = rect.bottom - min_y;
+		}
+
+		if ((dwStyle & 0x0030) == LABEL_NOPREFIX)
+			dtFormat |= DT_NOPREFIX;
+		else if ((dwStyle & 0x0030) == LABEL_HIDEPREFIX)
+			dtFormat |= DT_HIDEPREFIX;
+		else if ((dwStyle & 0x0030) == LABEL_PREFIXONLY)
+			dtFormat |= DT_PREFIXONLY;
+
+		if ((dwStyle & 0x00C0) == LABEL_WORD_ELLIPSIS)
+			dtFormat |= DT_WORD_ELLIPSIS;
+		else if ((dwStyle & 0x00C0) == LABEL_END_ELLIPSIS)
+			dtFormat |= DT_END_ELLIPSIS;
+		else if ((dwStyle & 0x00C0) == LABEL_PATH_ELLIPSIS)
+			dtFormat |= DT_PATH_ELLIPSIS;
+
+		if (dwStyle & LABEL_WORDBREAK)
+			dtFormat |= DT_WORDBREAK;
+
+		if (dwStyle & LABEL_RTLREADING)
+			dtFormat |= DT_RTLREADING;
+
+		DrawText(hDC, pStrText, -1, &rect, DT_VCENTER | dtFormat);
+		free(pStrText);
+	}
+
+	SelectObject(hDC, hOldFont);
 }
 
 LRESULT CALLBACK Label_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)

@@ -21,7 +21,6 @@ struct JUSTCTRL_RADIOBUTTON
 	bool lbuttonDown;
 	bool trackingMouse;
 	bool hot;
-	bool triState;
 	int state;
 };
 
@@ -37,7 +36,7 @@ int WINAPI GetRadioButtonStyle(HWND hWnd)
 			rbStyle += 3;
 		else
 		{
-			if (pRadioButton->state == BST_CHECKED)
+			if (pRadioButton->state == RADIOBUTTON_CHECKED)
 				rbStyle += 4;
 			if (pRadioButton->lbuttonDown)
 				rbStyle += 2;
@@ -70,7 +69,6 @@ void WINAPI DrawRadioButtonCtrl(HWND hWnd, HDC hDC)
 	SIZE cbSize;
 	double averageWidth;
 	double radioButtonSpacing;
-	int min_x;
 	int min_y;
 
 	GetClientRect(hWnd, &ClientArea);
@@ -112,24 +110,23 @@ void WINAPI DrawRadioButtonCtrl(HWND hWnd, HDC hDC)
 		}
 	}
 
-	min_x = (int)radioButtonSpacing + rect.right;
 	min_y = (cbSize.cy < rect.bottom) ? rect.bottom : cbSize.cy;
 
 	rect.left = 0;
 	rect.right = rect.left + cbSize.cx;
 
 	dwStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
-	if ((dwStyle & 0xC00) == BS_TOP)
+	if ((dwStyle & 0x000C) == RADIOBUTTON_TOP)
 	{
 		rect.top = (cbSize.cy < min_y) ? ((min_y - cbSize.cy) / 2) : 0;
 		rect.bottom = rect.top + cbSize.cy;
 	}
-	else if ((dwStyle & 0xC00) == BS_VCENTER)
+	else if ((dwStyle & 0x000C) == RADIOBUTTON_VCENTER)
 	{
 		rect.top = ((ClientArea.bottom - ClientArea.top)) / 2 - (cbSize.cy / 2);
 		rect.bottom = rect.top + cbSize.cy;
 	}
-	else if ((dwStyle & 0xC00) == BS_BOTTOM)
+	else if ((dwStyle & 0x000C) == RADIOBUTTON_BOTTOM)
 	{
 		rect.bottom = (ClientArea.bottom - ClientArea.top);
 		rect.bottom -= (cbSize.cy < min_y) ? ((min_y - cbSize.cy) / 2) : 0;
@@ -144,28 +141,38 @@ void WINAPI DrawRadioButtonCtrl(HWND hWnd, HDC hDC)
 		rect.right = ClientArea.right;
 
 		dtFormat = 0;
-		if ((dwStyle & 0x300) == BS_LEFT)
+		if ((dwStyle & 0x0003) == RADIOBUTTON_LEFT)
 			dtFormat |= DT_LEFT;
-		else if ((dwStyle & 0x300) == BS_CENTER)
+		else if ((dwStyle & 0x0003) == RADIOBUTTON_CENTER)
 			dtFormat |= DT_CENTER;
-		else if ((dwStyle & 0x300) == BS_RIGHT)
+		else if ((dwStyle & 0x0003) == RADIOBUTTON_RIGHT)
 			dtFormat |= DT_RIGHT;
 
-		if ((dwStyle & 0xC00) == BS_TOP)
+		if ((dwStyle & 0x000C) == RADIOBUTTON_TOP)
 		{
 			rect.top = 0;
 			rect.bottom = rect.top + min_y;
 		}
-		else if ((dwStyle & 0xC00) == BS_VCENTER)
+		else if ((dwStyle & 0x000C) == RADIOBUTTON_VCENTER)
 		{
 			rect.top = ((ClientArea.bottom - ClientArea.top)) / 2 - (min_y / 2);
 			rect.bottom = rect.top + min_y;
 		}
-		else if ((dwStyle & 0xC00) == BS_BOTTOM)
+		else if ((dwStyle & 0x000C) == RADIOBUTTON_BOTTOM)
 		{
 			rect.bottom = (ClientArea.bottom - ClientArea.top);
 			rect.top = rect.bottom - min_y;
 		}
+
+		if ((dwStyle & 0x0030) == RADIOBUTTON_NOPREFIX)
+			dtFormat |= DT_NOPREFIX;
+		else if ((dwStyle & 0x0030) == RADIOBUTTON_HIDEPREFIX)
+			dtFormat |= DT_HIDEPREFIX;
+		else if ((dwStyle & 0x0030) == RADIOBUTTON_PREFIXONLY)
+			dtFormat |= DT_PREFIXONLY;
+
+		if (dwStyle & RADIOBUTTON_RTLREADING)
+			dtFormat |= DT_RTLREADING;
 
 		DrawText(hDC, pStrText, -1, &rect, DT_SINGLELINE | DT_VCENTER | dtFormat);
 		free(pStrText);
@@ -302,22 +309,16 @@ LRESULT CALLBACK RadioButton_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 
 			if (lbuttonDown)
 			{
-				// Notify parent!
+				DWORD dwStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
+				if (dwStyle & RADIOBUTTON_AUTO)
+				{
+					// TODO ... Set radio button group to unchecked
 
-				if (pRadioButton->triState)
-				{
-					if (pRadioButton->state == 2)
-						pRadioButton->state = 0;
-					else
-						pRadioButton->state++;
+					pRadioButton->state = 1;
 				}
-				else
-				{
-					if (pRadioButton->state == 1)
-						pRadioButton->state = 0;
-					else
-						pRadioButton->state++;
-				}
+
+				HWND hWndParent = GetParent(hWnd);
+				SendMessage(hWndParent, WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(hWnd), RADIOBUTTON_CLICKED), (LPARAM)hWnd);
 			}
 
 			InvalidateRect(hWnd, NULL, FALSE);

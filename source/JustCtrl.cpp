@@ -12,10 +12,6 @@
 
 #include "JustCtrl.h"
 
-#include "checkbox.h"
-#include "label.h"
-#include "radiobutton.h"
-
 // Common controls dependencies.
 
 #pragma comment(lib, "comctl32.lib")

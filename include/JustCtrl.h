@@ -25,6 +25,10 @@
 #include <objidl.h>
 #include <gdiplus.h>
 
+#include "checkbox.h"
+#include "label.h"
+#include "radiobutton.h"
+
 #pragma comment (lib, "Shell32.lib")
 #pragma comment (lib, "UxTheme.lib")
 #pragma comment (lib, "Gdiplus.lib")

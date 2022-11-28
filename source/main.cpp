@@ -12,6 +12,19 @@
 
 #include "JustCtrl.h"
 
+//
+// Control ID's
+//
+
+#define IDC_CBHIDE                      0x0001
+#define IDC_LBCOLOR                     0x0002
+#define IDC_RBRED                       0x0003
+#define IDC_RBBLUE                      0x0004
+#define IDC_LBSHAPE                     0x0005
+#define IDC_RBTRIANGLE                  0x0006
+#define IDC_RBCIRCLE                    0x0007
+#define IDC_OKBTN                       0x0008
+
 class MAIN_WINDOW
 {
 public:
@@ -21,14 +34,19 @@ public:
 	HINSTANCE hInstance;
 	HWND hWnd;
 	FORM_CTRL cbHide;
+	FORM_CTRL lbColor;
 	FORM_CTRL rbRed;
 	FORM_CTRL rbBlue;
+	FORM_CTRL lbShape;
+	FORM_CTRL rbTriangle;
+	FORM_CTRL rbCircle;
 	FORM_CTRL OkBtn;
 	FORM_CTRL* control_linked_list;
 	UINT control_count;
 	bool handleResize;
 };
 
+// Main window instance.
 static MAIN_WINDOW* mainWindow;
 
 bool MAIN_WINDOW::Init(WNDPROC WndProc, HINSTANCE hInstance)
@@ -92,17 +110,37 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 	height = MulDiv(nwc->cbHide.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
 
 	nwc->cbHide.hWnd = CreateWindowEx(0, L"JustCtrl_Checkbox", L"Hide Shape",
-		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | BS_VCENTER | WS_TABSTOP,
-		x, y, width, height, nwc->hWnd, NULL, hInstance, NULL);
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_TABSTOP | CHECKBOX_VCENTER,
+		x, y, width, height, nwc->hWnd, (HMENU)IDC_CBHIDE, hInstance, NULL);
 
 	JustCtrl_SetAnchors(&nwc->cbHide, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
 	JustCtrl_GetdefaultFont(&nwc->cbHide.lpFont, nwc->DPI);
 	JustCtrl_ResizeFont(nwc->cbHide.hWnd, nwc->DPI, &nwc->cbHide.lpFont);
 
+	// Create a JustCtrl Label 'Color:'.
+
+	nwc->lbColor.x = 8;
+	nwc->lbColor.y = 31;
+	nwc->lbColor.width = 100;
+	nwc->lbColor.height = 15;
+
+	x = MulDiv(nwc->lbColor.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	y = MulDiv(nwc->lbColor.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	width = MulDiv(nwc->lbColor.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	height = MulDiv(nwc->lbColor.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+
+	nwc->lbColor.hWnd = CreateWindowEx(0, L"JustCtrl_Label", L"Color:",
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | LABEL_VCENTER,
+		x, y, width, height, nwc->hWnd, (HMENU)IDC_LBCOLOR, hInstance, NULL);
+
+	JustCtrl_SetAnchors(&nwc->lbColor, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
+	JustCtrl_GetdefaultFont(&nwc->lbColor.lpFont, nwc->DPI);
+	JustCtrl_ResizeFont(nwc->lbColor.hWnd, nwc->DPI, &nwc->lbColor.lpFont);
+
 	// Create 2 JustCtrl RadioButtons (Red, Blue).
 
 	nwc->rbRed.x = 8;
-	nwc->rbRed.y = 31;
+	nwc->rbRed.y = 54;
 	nwc->rbRed.width = 100;
 	nwc->rbRed.height = 15;
 
@@ -112,8 +150,8 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 	height = MulDiv(nwc->rbRed.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
 
 	nwc->rbRed.hWnd = CreateWindowEx(0, L"JustCtrl_RadioButton", L"Red",
-		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | BS_VCENTER | WS_GROUP | WS_TABSTOP,
-		x, y, width, height, nwc->hWnd, NULL, hInstance, NULL);
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_GROUP | WS_TABSTOP | CHECKBOX_VCENTER,
+		x, y, width, height, nwc->hWnd, (HMENU)IDC_RBRED, hInstance, NULL);
 
 	JustCtrl_SetAnchors(&nwc->rbRed, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
 	JustCtrl_GetdefaultFont(&nwc->rbRed.lpFont, nwc->DPI);
@@ -122,7 +160,7 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 	// ---- Blue ---- //
 
 	nwc->rbBlue.x = 8;
-	nwc->rbBlue.y = 54;
+	nwc->rbBlue.y = 77;
 	nwc->rbBlue.width = 100;
 	nwc->rbBlue.height = 15;
 
@@ -132,12 +170,72 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 	height = MulDiv(nwc->rbBlue.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
 
 	nwc->rbBlue.hWnd = CreateWindowEx(0, L"JustCtrl_RadioButton", L"Blue",
-		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | BS_VCENTER,
-		x, y, width, height, nwc->hWnd, NULL, hInstance, NULL);
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | CHECKBOX_VCENTER,
+		x, y, width, height, nwc->hWnd, (HMENU)IDC_RBBLUE, hInstance, NULL);
 
 	JustCtrl_SetAnchors(&nwc->rbBlue, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
 	JustCtrl_GetdefaultFont(&nwc->rbBlue.lpFont, nwc->DPI);
 	JustCtrl_ResizeFont(nwc->rbBlue.hWnd, nwc->DPI, &nwc->rbBlue.lpFont);
+
+	// Create a JustCtrl Label 'Shape:'.
+
+	nwc->lbShape.x = 8;
+	nwc->lbShape.y = 100;
+	nwc->lbShape.width = 100;
+	nwc->lbShape.height = 15;
+
+	x = MulDiv(nwc->lbShape.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	y = MulDiv(nwc->lbShape.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	width = MulDiv(nwc->lbShape.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	height = MulDiv(nwc->lbShape.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+
+	nwc->lbShape.hWnd = CreateWindowEx(0, L"JustCtrl_Label", L"Shape:",
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | LABEL_VCENTER,
+		x, y, width, height, nwc->hWnd, (HMENU)IDC_LBSHAPE, hInstance, NULL);
+
+	JustCtrl_SetAnchors(&nwc->lbShape, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
+	JustCtrl_GetdefaultFont(&nwc->lbShape.lpFont, nwc->DPI);
+	JustCtrl_ResizeFont(nwc->lbShape.hWnd, nwc->DPI, &nwc->lbShape.lpFont);
+
+	// Create 2 JustCtrl RadioButtons (Triangle, Circle).
+
+	nwc->rbTriangle.x = 8;
+	nwc->rbTriangle.y = 123;
+	nwc->rbTriangle.width = 100;
+	nwc->rbTriangle.height = 15;
+
+	x = MulDiv(nwc->rbTriangle.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	y = MulDiv(nwc->rbTriangle.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	width = MulDiv(nwc->rbTriangle.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	height = MulDiv(nwc->rbTriangle.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+
+	nwc->rbTriangle.hWnd = CreateWindowEx(0, L"JustCtrl_RadioButton", L"Triangle",
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_GROUP | WS_TABSTOP | CHECKBOX_VCENTER,
+		x, y, width, height, nwc->hWnd, (HMENU)IDC_RBTRIANGLE, hInstance, NULL);
+
+	JustCtrl_SetAnchors(&nwc->rbTriangle, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
+	JustCtrl_GetdefaultFont(&nwc->rbTriangle.lpFont, nwc->DPI);
+	JustCtrl_ResizeFont(nwc->rbTriangle.hWnd, nwc->DPI, &nwc->rbTriangle.lpFont);
+
+	// ---- Circle ---- //
+
+	nwc->rbCircle.x = 8;
+	nwc->rbCircle.y = 146;
+	nwc->rbCircle.width = 100;
+	nwc->rbCircle.height = 15;
+
+	x = MulDiv(nwc->rbCircle.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	y = MulDiv(nwc->rbCircle.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	width = MulDiv(nwc->rbCircle.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	height = MulDiv(nwc->rbCircle.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+
+	nwc->rbCircle.hWnd = CreateWindowEx(0, L"JustCtrl_RadioButton", L"Circle",
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | CHECKBOX_VCENTER,
+		x, y, width, height, nwc->hWnd, (HMENU)IDC_RBCIRCLE, hInstance, NULL);
+
+	JustCtrl_SetAnchors(&nwc->rbCircle, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
+	JustCtrl_GetdefaultFont(&nwc->rbCircle.lpFont, nwc->DPI);
+	JustCtrl_ResizeFont(nwc->rbCircle.hWnd, nwc->DPI, &nwc->rbCircle.lpFont);
 
 	// Create a normal native windows button.
 
@@ -153,7 +251,7 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 
 	nwc->OkBtn.hWnd = CreateWindowEx(0, WC_BUTTON, L"OK",
 		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_GROUP | WS_TABSTOP,
-		x, y, width, height, nwc->hWnd, NULL, hInstance, NULL);
+		x, y, width, height, nwc->hWnd, (HMENU)IDC_OKBTN, hInstance, NULL);
 
 	JustCtrl_SetAnchors(&nwc->OkBtn, JUSTCTRL_ANCHOR_BOTTOM | JUSTCTRL_ANCHOR_RIGHT, nwc->DPI);
 	JustCtrl_GetdefaultFont(&nwc->OkBtn.lpFont, nwc->DPI);
@@ -162,11 +260,15 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 	// Setup the control linked list and count var.
 
 	nwc->control_linked_list = &nwc->cbHide;
-	nwc->cbHide.next = &nwc->rbRed;
+	nwc->cbHide.next = &nwc->lbColor;
+	nwc->lbColor.next = &nwc->rbRed;
 	nwc->rbRed.next = &nwc->rbBlue;
-	nwc->rbBlue.next = &nwc->OkBtn;
+	nwc->rbBlue.next = &nwc->lbShape;
+	nwc->lbShape.next = &nwc->rbTriangle;
+	nwc->rbTriangle.next = &nwc->rbCircle;
+	nwc->rbCircle.next = &nwc->OkBtn;
 
-	nwc->control_count = 4;
+	nwc->control_count = 8;
 
 	// Center and show the Main window.
 
@@ -316,6 +418,48 @@ LRESULT CALLBACK MainWindow_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 			// ---------------------------------------------------------- //
 
 			pThisWindow->handleResize = true;
+		}
+
+		break;
+	}
+	case WM_COMMAND:
+	{
+		int wmId = LOWORD(wParam);
+		int wmEvent = HIWORD(wParam);
+
+		HWND ctrl_hWnd = (HWND)lParam;
+
+		switch (wmId)
+		{
+		case IDC_CBHIDE:
+		{
+			if (wmEvent == CHECKBOX_CLICKED)
+			{
+				if (Checkbox_GetCheck(ctrl_hWnd) == CHECKBOX_CHECKED)
+					Checkbox_SetCheck(ctrl_hWnd, CHECKBOX_UNCHECKED, true);
+				else
+					Checkbox_SetCheck(ctrl_hWnd, CHECKBOX_CHECKED, true);
+			}
+			break;
+		}
+		case IDC_RBRED:
+		{
+			break;
+		}
+		case IDC_RBBLUE:
+		{
+			break;
+		}
+		case IDC_RBTRIANGLE:
+		{
+			break;
+		}
+		case IDC_RBCIRCLE:
+		{
+			break;
+		}
+		default:
+			break;
 		}
 
 		break;
