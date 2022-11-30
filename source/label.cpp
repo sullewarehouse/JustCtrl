@@ -7,7 +7,7 @@
 //     SULLE WAREHOUSE LLC
 // 
 // Description:
-//     blank.
+//     The source file for the JustCtrl_Label control.
 //
 
 #include "label.h"

@@ -11,6 +11,7 @@
 //
 
 #include "JustCtrl.h"
+using namespace Gdiplus;
 
 //
 // Control ID's
@@ -110,7 +111,7 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 	height = MulDiv(nwc->cbHide.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
 
 	nwc->cbHide.hWnd = CreateWindowEx(0, L"JustCtrl_Checkbox", L"Hide Shape",
-		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_TABSTOP | CHECKBOX_VCENTER,
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_TABSTOP | CHECKBOX_VCENTER | CHECKBOX_AUTO,
 		x, y, width, height, nwc->hWnd, (HMENU)IDC_CBHIDE, hInstance, NULL);
 
 	JustCtrl_SetAnchors(&nwc->cbHide, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
@@ -150,12 +151,14 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 	height = MulDiv(nwc->rbRed.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
 
 	nwc->rbRed.hWnd = CreateWindowEx(0, L"JustCtrl_RadioButton", L"Red",
-		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_GROUP | WS_TABSTOP | CHECKBOX_VCENTER,
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_GROUP | WS_TABSTOP | RADIOBUTTON_VCENTER | RADIOBUTTON_AUTO,
 		x, y, width, height, nwc->hWnd, (HMENU)IDC_RBRED, hInstance, NULL);
 
 	JustCtrl_SetAnchors(&nwc->rbRed, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
 	JustCtrl_GetdefaultFont(&nwc->rbRed.lpFont, nwc->DPI);
 	JustCtrl_ResizeFont(nwc->rbRed.hWnd, nwc->DPI, &nwc->rbRed.lpFont);
+
+	RadioButton_SetCheck(nwc->rbRed.hWnd, RADIOBUTTON_CHECKED, true);
 
 	// ---- Blue ---- //
 
@@ -170,7 +173,7 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 	height = MulDiv(nwc->rbBlue.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
 
 	nwc->rbBlue.hWnd = CreateWindowEx(0, L"JustCtrl_RadioButton", L"Blue",
-		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | CHECKBOX_VCENTER,
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | RADIOBUTTON_VCENTER | RADIOBUTTON_AUTO,
 		x, y, width, height, nwc->hWnd, (HMENU)IDC_RBBLUE, hInstance, NULL);
 
 	JustCtrl_SetAnchors(&nwc->rbBlue, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
@@ -210,7 +213,7 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 	height = MulDiv(nwc->rbTriangle.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
 
 	nwc->rbTriangle.hWnd = CreateWindowEx(0, L"JustCtrl_RadioButton", L"Triangle",
-		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_GROUP | WS_TABSTOP | CHECKBOX_VCENTER,
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_GROUP | WS_TABSTOP | RADIOBUTTON_VCENTER | RADIOBUTTON_AUTO,
 		x, y, width, height, nwc->hWnd, (HMENU)IDC_RBTRIANGLE, hInstance, NULL);
 
 	JustCtrl_SetAnchors(&nwc->rbTriangle, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
@@ -230,12 +233,14 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 	height = MulDiv(nwc->rbCircle.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
 
 	nwc->rbCircle.hWnd = CreateWindowEx(0, L"JustCtrl_RadioButton", L"Circle",
-		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | CHECKBOX_VCENTER,
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | RADIOBUTTON_VCENTER | RADIOBUTTON_AUTO,
 		x, y, width, height, nwc->hWnd, (HMENU)IDC_RBCIRCLE, hInstance, NULL);
 
 	JustCtrl_SetAnchors(&nwc->rbCircle, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
 	JustCtrl_GetdefaultFont(&nwc->rbCircle.lpFont, nwc->DPI);
 	JustCtrl_ResizeFont(nwc->rbCircle.hWnd, nwc->DPI, &nwc->rbCircle.lpFont);
+
+	RadioButton_SetCheck(nwc->rbCircle.hWnd, RADIOBUTTON_CHECKED, true);
 
 	// Create a normal native windows button.
 
@@ -334,6 +339,50 @@ LRESULT CALLBACK MainWindow_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 		HBRUSH hBrush = (HBRUSH)GetClassLongPtr(hWnd, GCLP_HBRBACKGROUND);
 		FillRect(bufferDC, &clientRect, hBrush);
 
+		// ** Get window class pointer ** //
+		pThisWindow = (MAIN_WINDOW*)GetWindowLongPtr(hWnd, 0);
+		if (pThisWindow != 0)
+		{
+			// *** GDI Plus drawing *** //
+
+			Graphics graphics(bufferDC);
+			Color lineColor;
+
+			if (Checkbox_GetCheck(pThisWindow->cbHide.hWnd) != CHECKBOX_CHECKED)
+			{
+				if (RadioButton_GetCheck(pThisWindow->rbRed.hWnd) == CHECKBOX_CHECKED)
+					lineColor = Gdiplus::Color(255, 255, 0, 0);
+				else if (RadioButton_GetCheck(pThisWindow->rbBlue.hWnd) == CHECKBOX_CHECKED)
+					lineColor = Gdiplus::Color(255, 0, 0, 255);
+
+				Pen GdiPen(lineColor, MulDiv(2, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI));
+				GdiPen.SetAlignment(PenAlignmentCenter);
+				graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+
+				if (RadioButton_GetCheck(pThisWindow->rbTriangle.hWnd) == CHECKBOX_CHECKED)
+				{
+					Point drawingPoints[] = {
+						Point(MulDiv(124, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI), MulDiv(20 + 250, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI)),
+						Point(MulDiv(124 + 125, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI), MulDiv(20, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI)),
+						Point(MulDiv(124 + 250, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI), MulDiv(20 + 250, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI)) };
+
+					graphics.DrawPolygon(&GdiPen, drawingPoints, 3);
+				}
+				else if (RadioButton_GetCheck(pThisWindow->rbCircle.hWnd) == CHECKBOX_CHECKED)
+				{
+					Rect DrawingRect = Rect(
+						MulDiv(124, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI),
+						MulDiv(20, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI),
+						MulDiv(250, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI),
+						MulDiv(250, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI));
+
+					graphics.DrawEllipse(&GdiPen, DrawingRect);
+				}
+			}
+
+			// *** GDI Plus Done! *** //
+		}
+
 		BitBlt(WinDC, 0, 0, ps.rcPaint.right, ps.rcPaint.bottom, bufferDC, 0, 0, SRCCOPY);
 
 		SelectObject(bufferDC, hOldBmp);
@@ -427,35 +476,21 @@ LRESULT CALLBACK MainWindow_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 		int wmId = LOWORD(wParam);
 		int wmEvent = HIWORD(wParam);
 
-		HWND ctrl_hWnd = (HWND)lParam;
+		// HWND ctrl_hWnd = (HWND)lParam; // Not needed for this example.
 
 		switch (wmId)
 		{
 		case IDC_CBHIDE:
-		{
-			if (wmEvent == CHECKBOX_CLICKED)
-			{
-				if (Checkbox_GetCheck(ctrl_hWnd) == CHECKBOX_CHECKED)
-					Checkbox_SetCheck(ctrl_hWnd, CHECKBOX_UNCHECKED, true);
-				else
-					Checkbox_SetCheck(ctrl_hWnd, CHECKBOX_CHECKED, true);
-			}
-			break;
-		}
 		case IDC_RBRED:
-		{
-			break;
-		}
 		case IDC_RBBLUE:
-		{
-			break;
-		}
 		case IDC_RBTRIANGLE:
-		{
-			break;
-		}
 		case IDC_RBCIRCLE:
 		{
+			if ((wmEvent == CHECKBOX_CLICKED) || (RADIOBUTTON_CLICKED))
+			{
+				// Tell the main window to redraw itself!
+				InvalidateRect(hWnd, NULL, FALSE);
+			}
 			break;
 		}
 		default:
@@ -483,13 +518,19 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		return 0;
 	}
 
-	// Init window classes.
+	// Init custom window classes.
 
 	if (!MAIN_WINDOW::Init(MainWindow_WndProc, hInstance))
 	{
 		MessageBox(0, L"The MAIN_WINDOW form failed to initialize, exiting the app!", L"Error!", MB_OK);
 		return 0;
 	}
+
+	// Init GDI Plus.
+
+	ULONG_PTR gdiplusToken;
+	GdiplusStartupInput gdiplusStartupInput;
+	GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
 	// Create the main window.
 

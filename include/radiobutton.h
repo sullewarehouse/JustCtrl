@@ -7,7 +7,7 @@
 //     SULLE WAREHOUSE LLC
 // 
 // Description:
-//     blank.
+//     The header file for the JustCtrl_RadioButton control.
 //
 
 #ifndef JUSTCTRL_RADIOBUTTON_H
@@ -57,8 +57,8 @@
 // Radio Button Macros
 //
 
-#define RadioButton_GetCheck(hWnd) SendMessage(hWnd, RadioButton_GETCHECK, 0, 0)
-#define RadioButton_SetCheck(hWnd, state, redraw) SendMessage(hWnd, RadioButton_SETCHECK, MAKEWPARAM(state, redraw), 0)
+#define RadioButton_GetCheck(hWnd) SendMessage(hWnd, RADIOBUTTON_GETCHECK, 0, 0)
+#define RadioButton_SetCheck(hWnd, state, redraw) SendMessage(hWnd, RADIOBUTTON_SETCHECK, MAKEWPARAM(state, redraw), 0)
 
 //
 // Radio Button Control Functions

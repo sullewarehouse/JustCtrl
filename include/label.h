@@ -7,7 +7,7 @@
 //     SULLE WAREHOUSE LLC
 // 
 // Description:
-//     blank.
+//     The header file for the JustCtrl_Label control.
 //
 
 #ifndef JUSTCTRL_LABEL_H

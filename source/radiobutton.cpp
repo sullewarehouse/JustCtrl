@@ -7,7 +7,7 @@
 //     SULLE WAREHOUSE LLC
 // 
 // Description:
-//     blank.
+//     The source file for the JustCtrl_RadioButton control.
 //
 
 #include "radiobutton.h"
@@ -312,7 +312,27 @@ LRESULT CALLBACK RadioButton_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 				DWORD dwStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
 				if (dwStyle & RADIOBUTTON_AUTO)
 				{
-					// TODO ... Set radio button group to unchecked
+					HWND hWndParent = GetParent(hWnd);
+					HWND hWndSibling = hWnd;
+
+					WCHAR* pClassName = (WCHAR*)malloc(sizeof(WCHAR) * 256);
+					if (pClassName == NULL) return 0;
+
+					do
+					{
+						hWndSibling = GetNextDlgGroupItem(hWndParent, hWndSibling, TRUE);
+						if (hWndSibling != hWnd)
+						{
+							GetClassName(hWndSibling, pClassName, 256);
+							if (wcscmp(pClassName, L"JustCtrl_RadioButton") == 0)
+							{
+								RadioButton_SetCheck(hWndSibling, RADIOBUTTON_UNCHECKED, true);
+							}
+						}
+
+					} while (hWndSibling != hWnd);
+
+					free(pClassName);
 
 					pRadioButton->state = 1;
 				}
@@ -349,6 +369,45 @@ LRESULT CALLBACK RadioButton_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 			pRadioButton->hot = false;
 
 			InvalidateRect(hWnd, NULL, FALSE);
+		}
+
+		return 0;
+	}
+	case WM_SETFOCUS:
+	{
+		HWND hWndParent = GetParent(hWnd);
+		SendMessage(hWndParent, WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(hWnd), RADIOBUTTON_SETFOCUS), (LPARAM)hWnd);
+
+		return 0;
+	}
+	case WM_KILLFOCUS:
+	{
+		HWND hWndParent = GetParent(hWnd);
+		SendMessage(hWndParent, WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(hWnd), RADIOBUTTON_KILLFOCUS), (LPARAM)hWnd);
+
+		return 0;
+	}
+	case RADIOBUTTON_GETCHECK:
+	{
+		pRadioButton = (JUSTCTRL_RADIOBUTTON*)GetWindowLongPtr(hWnd, 0);
+		if (pRadioButton)
+		{
+			return pRadioButton->state;
+		}
+
+		return 0;
+	}
+	case RADIOBUTTON_SETCHECK:
+	{
+		pRadioButton = (JUSTCTRL_RADIOBUTTON*)GetWindowLongPtr(hWnd, 0);
+		if (pRadioButton)
+		{
+			pRadioButton->state = (int)LOWORD(wParam);
+
+			if ((bool)HIWORD(wParam) == true)
+			{
+				InvalidateRect(hWnd, NULL, FALSE);
+			}
 		}
 
 		return 0;

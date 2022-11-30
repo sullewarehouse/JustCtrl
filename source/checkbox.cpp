@@ -7,7 +7,7 @@
 //     SULLE WAREHOUSE LLC
 // 
 // Description:
-//     blank.
+//     The source file for the JustCtrl_Checkbox control.
 //
 
 #include "checkbox.h"

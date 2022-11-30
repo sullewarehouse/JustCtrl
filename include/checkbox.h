@@ -7,7 +7,7 @@
 //     SULLE WAREHOUSE LLC
 // 
 // Description:
-//     blank.
+//     The header file for the JustCtrl_Checkbox control.
 //
 
 #ifndef JUSTCTRL_CHECKBOX_H
