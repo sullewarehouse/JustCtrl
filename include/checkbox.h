@@ -47,6 +47,7 @@
 #define CHECKBOX_CLICKED           0x0000
 #define CHECKBOX_KILLFOCUS         0x0001
 #define CHECKBOX_SETFOCUS          0x0002
+#define CHECKBOX_CTLCOLOR          0x0003
 
 //
 // Checkbox Control Messages

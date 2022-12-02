@@ -98,6 +98,16 @@ typedef BOOL(WINAPI* SetProcessDpiAwarenessContext_proc)(GUI_DPI_AWARENESS_CONTE
 typedef BOOL(WINAPI* EnableNonClientDpiScaling_proc)(HWND hWnd);
 typedef BOOL(WINAPI* AdjustWindowRectExForDpi_proc)(LPRECT lpRect, DWORD dwStyle, BOOL bMenu, DWORD dwExStyle, UINT dpi);
 
+// CTLCOLOR message struct.
+
+struct JUSTCTRL_CTLCOLOR
+{
+	NMHDR nmh;
+	HDC hDC;
+	HBRUSH hBrush;
+	bool bSet;
+};
+
 // Common control class.
 
 typedef class _FORM_CTRL FORM_CTRL;

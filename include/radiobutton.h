@@ -45,6 +45,7 @@
 #define RADIOBUTTON_CLICKED           0x0000
 #define RADIOBUTTON_KILLFOCUS         0x0001
 #define RADIOBUTTON_SETFOCUS          0x0002
+#define RADIOBUTTON_CTLCOLOR          0x0003
 
 //
 // Radio Button Control Messages

@@ -33,6 +33,16 @@
 #define LABEL_PATH_ELLIPSIS     0x00C0
 #define LABEL_WORDBREAK         0x0100
 #define LABEL_RTLREADING        0x0200
+#define LABEL_NOTIFY            0x0400
+
+//
+// Label Control Notification Codes
+//
+
+#define LABEL_CLICKED           0x0000
+#define LABEL_KILLFOCUS         0x0001
+#define LABEL_SETFOCUS          0x0002
+#define LABEL_CTLCOLOR          0x0003
 
 //
 // Label Control Functions

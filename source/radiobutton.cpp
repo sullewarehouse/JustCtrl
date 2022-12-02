@@ -56,7 +56,6 @@ void WINAPI DrawRadioButtonCtrl(HWND hWnd, HDC hDC)
 	HWND hWndParent;
 	RECT rect;
 	RECT ClientArea;
-	HBRUSH hBrush;
 	HFONT hFont;
 	HFONT hOldFont;
 	SIZE size;
@@ -72,13 +71,32 @@ void WINAPI DrawRadioButtonCtrl(HWND hWnd, HDC hDC)
 	int min_y;
 
 	GetClientRect(hWnd, &ClientArea);
-
 	hWndParent = GetParent(hWnd);
-	hBrush = (HBRUSH)SendMessage(hWndParent, WM_CTLCOLORBTN, (WPARAM)hDC, (LPARAM)hWnd);
-	if (!hBrush)
-		DrawThemeParentBackground(hWnd, hDC, NULL);
+
+	JUSTCTRL_CTLCOLOR ctlColor;
+	memset(&ctlColor, 0, sizeof(JUSTCTRL_CTLCOLOR));
+	ctlColor.nmh.code = RADIOBUTTON_CTLCOLOR;
+	ctlColor.nmh.idFrom = GetDlgCtrlID(hWnd);
+	ctlColor.nmh.hwndFrom = hWnd;
+	ctlColor.hDC = hDC;
+	SendMessage(hWndParent, WM_NOTIFY, ctlColor.nmh.idFrom, (LPARAM)&ctlColor);
+
+	if (ctlColor.bSet)
+	{
+		if (ctlColor.hBrush)
+			FillRect(hDC, &ClientArea, ctlColor.hBrush);
+	}
 	else
-		FillRect(hDC, &ClientArea, hBrush);
+	{
+		SetBkMode(hDC, TRANSPARENT);
+
+		if (!IsWindowEnabled(hWnd))
+			SetTextColor(hDC, GetSysColor(COLOR_GRAYTEXT));
+		else
+			SetTextColor(hDC, GetSysColor(COLOR_WINDOWTEXT));
+
+		DrawThemeParentBackground(hWnd, hDC, NULL);
+	}
 
 	hTheme = OpenThemeData(hWnd, L"BUTTON");
 	if (!hTheme) return;

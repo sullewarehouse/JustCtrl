@@ -27,7 +27,6 @@ void WINAPI DrawLabelCtrl(HWND hWnd, HDC hDC)
 	HWND hWndParent;
 	RECT rect;
 	RECT ClientArea;
-	HBRUSH hBrush;
 	HFONT hFont;
 	HFONT hOldFont;
 	size_t strLength;
@@ -37,13 +36,32 @@ void WINAPI DrawLabelCtrl(HWND hWnd, HDC hDC)
 	int min_y;
 
 	GetClientRect(hWnd, &ClientArea);
-
 	hWndParent = GetParent(hWnd);
-	hBrush = (HBRUSH)SendMessage(hWndParent, WM_CTLCOLORSTATIC, (WPARAM)hDC, (LPARAM)hWnd);
-	if (!hBrush)
-		DrawThemeParentBackground(hWnd, hDC, NULL);
+
+	JUSTCTRL_CTLCOLOR ctlColor;
+	memset(&ctlColor, 0, sizeof(JUSTCTRL_CTLCOLOR));
+	ctlColor.nmh.code = LABEL_CTLCOLOR;
+	ctlColor.nmh.idFrom = GetDlgCtrlID(hWnd);
+	ctlColor.nmh.hwndFrom = hWnd;
+	ctlColor.hDC = hDC;
+	SendMessage(hWndParent, WM_NOTIFY, ctlColor.nmh.idFrom, (LPARAM)&ctlColor);
+
+	if (ctlColor.bSet)
+	{
+		if (ctlColor.hBrush)
+			FillRect(hDC, &ClientArea, ctlColor.hBrush);
+	}
 	else
-		FillRect(hDC, &ClientArea, hBrush);
+	{
+		SetBkMode(hDC, TRANSPARENT);
+
+		if (!IsWindowEnabled(hWnd))
+			SetTextColor(hDC, GetSysColor(COLOR_GRAYTEXT));
+		else
+			SetTextColor(hDC, GetSysColor(COLOR_WINDOWTEXT));
+
+		DrawThemeParentBackground(hWnd, hDC, NULL);
+	}
 
 	hFont = (HFONT)SendMessage(hWnd, WM_GETFONT, 0, 0);
 	hOldFont = (HFONT)SelectObject(hDC, hFont);
@@ -247,7 +265,12 @@ LRESULT CALLBACK Label_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 
 			if (lbuttonDown)
 			{
-				// Notify parent!
+				DWORD dwStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
+				if (dwStyle & LABEL_NOTIFY)
+				{
+					HWND hWndParent = GetParent(hWnd);
+					SendMessage(hWndParent, WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(hWnd), LABEL_CLICKED), (LPARAM)hWnd);
+				}
 			}
 		}
 

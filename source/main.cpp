@@ -64,7 +64,7 @@ bool MAIN_WINDOW::Init(WNDPROC WndProc, HINSTANCE hInstance)
 	wcex.hInstance = hInstance;
 	wcex.hIcon = NULL;
 	wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wcex.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
+	wcex.hbrBackground = (HBRUSH)(COLOR_3DFACE + 1);
 	wcex.lpszMenuName = NULL;
 	wcex.lpszClassName = L"MainWindow";
 	wcex.hIconSm = NULL;
@@ -355,7 +355,7 @@ LRESULT CALLBACK MainWindow_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 				else if (RadioButton_GetCheck(pThisWindow->rbBlue.hWnd) == CHECKBOX_CHECKED)
 					lineColor = Gdiplus::Color(255, 0, 0, 255);
 
-				Pen GdiPen(lineColor, MulDiv(2, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI));
+				Pen GdiPen(lineColor, (Gdiplus::REAL)MulDiv(2, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI));
 				GdiPen.SetAlignment(PenAlignmentCenter);
 				graphics.SetSmoothingMode(SmoothingModeAntiAlias);
 
