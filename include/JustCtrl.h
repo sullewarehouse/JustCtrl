@@ -133,6 +133,7 @@ public:
 bool WINAPI JustCtrl_Init(HINSTANCE hInstance, bool report);
 UINT WINAPI JustCtrl_GetDpiForWindow(HWND hWnd);
 UINT WINAPI JustCtrl_GetDpiForMonitor(HMONITOR hMonitor);
+BOOL WINAPI JustCtrl_EnableNonClientDpiScaling(HWND hWnd);
 double WINAPI JustCtrl_DipsToPixels(double dips, double monitorDpi);
 double WINAPI JustCtrl_PixelsToDips(double pixels, double monitorDpi);
 double WINAPI JustCtrl_AlignToDipsReturnPixels(double x, int* pDips, int monitorDpi, int round_mode);

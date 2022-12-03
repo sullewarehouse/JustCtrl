@@ -126,16 +126,26 @@ DpiAwarenessSet:
 
 	if (!JustCtrl_InitCheckbox(hInstance))
 	{
+		if (report)
+			MessageBox(NULL, L"Failed to register the JustCtrl_Checkbox class.", L"Error!", MB_OK);
 
+		return false;
 	}
 
 	if (!JustCtrl_InitLabel(hInstance))
 	{
+		if (report)
+			MessageBox(NULL, L"Failed to register the JustCtrl_Label class.", L"Error!", MB_OK);
+
+		return false;
 	}
 
 	if (!JustCtrl_InitRadioButton(hInstance))
 	{
+		if (report)
+			MessageBox(NULL, L"Failed to register the JustCtrl_RadioButton class.", L"Error!", MB_OK);
 
+		return false;
 	}
 
 	return true;
@@ -190,6 +200,14 @@ UINT WINAPI JustCtrl_GetDpiForMonitor(HMONITOR hMonitor)
 	}
 
 	return monitorDpi;
+}
+
+BOOL WINAPI JustCtrl_EnableNonClientDpiScaling(HWND hWnd)
+{
+	if (pEnableNonClientDpiScaling)
+		return pEnableNonClientDpiScaling(hWnd);
+
+	return FALSE;
 }
 
 double WINAPI JustCtrl_DipsToPixels(double dips, double monitorDpi)
@@ -524,7 +542,7 @@ void WINAPI JustCtrl_ResizeControls(HWND hWnd, FORM_CTRL* pControl_Linked_List, 
 		else
 			height = ((parentClientArea.bottom - parentClientArea.top) - y) - MulDiv(pFormCtrl->hOffset, monitorDpi, JUSTCTRL_APPLICATION_DPI);
 
-		DeferWindowPos(hdwp, pFormCtrl->hWnd, NULL, x, y, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
+		DeferWindowPos(hdwp, pFormCtrl->hWnd, NULL, x, y, width, height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
 
 		pFormCtrl = pFormCtrl->next;
 	}

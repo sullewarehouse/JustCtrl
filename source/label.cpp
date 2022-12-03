@@ -302,6 +302,20 @@ LRESULT CALLBACK Label_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 
 		return 0;
 	}
+	case WM_SETFOCUS:
+	{
+		HWND hWndParent = GetParent(hWnd);
+		SendMessage(hWndParent, WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(hWnd), LABEL_SETFOCUS), (LPARAM)hWnd);
+
+		return 0;
+	}
+	case WM_KILLFOCUS:
+	{
+		HWND hWndParent = GetParent(hWnd);
+		SendMessage(hWndParent, WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(hWnd), LABEL_KILLFOCUS), (LPARAM)hWnd);
+
+		return 0;
+	}
 	default:
 		break;
 	}

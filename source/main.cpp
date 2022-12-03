@@ -66,7 +66,7 @@ bool MAIN_WINDOW::Init(WNDPROC WndProc, HINSTANCE hInstance)
 	wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
 	wcex.hbrBackground = (HBRUSH)(COLOR_3DFACE + 1);
 	wcex.lpszMenuName = NULL;
-	wcex.lpszClassName = L"MainWindow";
+	wcex.lpszClassName = L"MAIN_WINDOW";
 	wcex.hIconSm = NULL;
 
 	if (!RegisterClassEx(&wcex))
@@ -87,7 +87,7 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 
 	// Create the Main window.
 
-	hWnd = CreateWindowEx(WS_EX_OVERLAPPEDWINDOW, L"MainWindow", L"JustCtrl Example",
+	hWnd = CreateWindowEx(WS_EX_OVERLAPPEDWINDOW, L"MAIN_WINDOW", L"JustCtrl Example",
 		WS_BORDER | WS_SYSMENU | WS_SIZEBOX | WS_MAXIMIZEBOX | WS_MINIMIZEBOX | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
 		0, 0, 500, 300, NULL, NULL, hInstance, NULL);
 
@@ -283,7 +283,63 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 	return nwc;
 }
 
-LRESULT CALLBACK MainWindow_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+void WINAPI MAIN_WINDOW_OnPaint(MAIN_WINDOW* pThisWindow, HDC hDC)
+{
+	RECT clientRect;
+	GetClientRect(pThisWindow->hWnd, &clientRect);
+	HBRUSH hBrush = CreateSolidBrush(RGB(240, 240, 240));
+	FillRect(hDC, &clientRect, hBrush);
+	DeleteObject(hBrush);
+
+	// *** GDI Plus drawing *** //
+
+	Graphics graphics(hDC);
+	Color lineColor;
+
+	if (Checkbox_GetCheck(pThisWindow->cbHide.hWnd) != CHECKBOX_CHECKED)
+	{
+		if (RadioButton_GetCheck(pThisWindow->rbRed.hWnd) == CHECKBOX_CHECKED)
+			lineColor = Gdiplus::Color(255, 255, 0, 0);
+		else if (RadioButton_GetCheck(pThisWindow->rbBlue.hWnd) == CHECKBOX_CHECKED)
+			lineColor = Gdiplus::Color(255, 0, 0, 255);
+
+		Pen GdiPen(lineColor, (Gdiplus::REAL)MulDiv(2, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI));
+		GdiPen.SetAlignment(PenAlignmentCenter);
+		graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+
+		if (RadioButton_GetCheck(pThisWindow->rbTriangle.hWnd) == CHECKBOX_CHECKED)
+		{
+			const int x = 124;
+			const int y = 20;
+			const int width = 250;
+			const int height = 250;
+
+			Point drawingPoints[] = {
+				Point(MulDiv(x, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI), MulDiv(y + height, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI)),
+				Point(MulDiv(x + (width / 2), pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI), MulDiv(y, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI)),
+				Point(MulDiv(x + width, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI), MulDiv(y + height, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI)) };
+
+			graphics.DrawPolygon(&GdiPen, drawingPoints, 3);
+		}
+		else if (RadioButton_GetCheck(pThisWindow->rbCircle.hWnd) == CHECKBOX_CHECKED)
+		{
+			const int x = 124;
+			const int y = 20;
+			const int width = 250;
+			const int height = 250;
+
+			Rect DrawingRect = Rect(
+				MulDiv(x, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI),
+				MulDiv(y, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI),
+				MulDiv(width, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI),
+				MulDiv(height, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI));
+
+			graphics.DrawEllipse(&GdiPen, DrawingRect);
+		}
+	}
+}
+
+LRESULT CALLBACK MAIN_WINDOW_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	HDC WinDC;
 	PAINTSTRUCT ps;
@@ -294,6 +350,8 @@ LRESULT CALLBACK MainWindow_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 	{
 	case WM_NCCREATE:
 	{
+		JustCtrl_EnableNonClientDpiScaling(hWnd);
+
 		pThisWindow = (MAIN_WINDOW*)malloc(sizeof(MAIN_WINDOW));
 		if (pThisWindow != 0)
 		{
@@ -334,53 +392,10 @@ LRESULT CALLBACK MainWindow_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 		HBITMAP hMemoryBmp = CreateCompatibleBitmap(WinDC, ps.rcPaint.right, ps.rcPaint.bottom);
 		HBITMAP hOldBmp = (HBITMAP)SelectObject(bufferDC, hMemoryBmp);
 
-		RECT clientRect;
-		GetClientRect(hWnd, &clientRect);
-		HBRUSH hBrush = (HBRUSH)GetClassLongPtr(hWnd, GCLP_HBRBACKGROUND);
-		FillRect(bufferDC, &clientRect, hBrush);
-
-		// ** Get window class pointer ** //
 		pThisWindow = (MAIN_WINDOW*)GetWindowLongPtr(hWnd, 0);
-		if (pThisWindow != 0)
+		if (pThisWindow != NULL)
 		{
-			// *** GDI Plus drawing *** //
-
-			Graphics graphics(bufferDC);
-			Color lineColor;
-
-			if (Checkbox_GetCheck(pThisWindow->cbHide.hWnd) != CHECKBOX_CHECKED)
-			{
-				if (RadioButton_GetCheck(pThisWindow->rbRed.hWnd) == CHECKBOX_CHECKED)
-					lineColor = Gdiplus::Color(255, 255, 0, 0);
-				else if (RadioButton_GetCheck(pThisWindow->rbBlue.hWnd) == CHECKBOX_CHECKED)
-					lineColor = Gdiplus::Color(255, 0, 0, 255);
-
-				Pen GdiPen(lineColor, (Gdiplus::REAL)MulDiv(2, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI));
-				GdiPen.SetAlignment(PenAlignmentCenter);
-				graphics.SetSmoothingMode(SmoothingModeAntiAlias);
-
-				if (RadioButton_GetCheck(pThisWindow->rbTriangle.hWnd) == CHECKBOX_CHECKED)
-				{
-					Point drawingPoints[] = {
-						Point(MulDiv(124, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI), MulDiv(20 + 250, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI)),
-						Point(MulDiv(124 + 125, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI), MulDiv(20, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI)),
-						Point(MulDiv(124 + 250, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI), MulDiv(20 + 250, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI)) };
-
-					graphics.DrawPolygon(&GdiPen, drawingPoints, 3);
-				}
-				else if (RadioButton_GetCheck(pThisWindow->rbCircle.hWnd) == CHECKBOX_CHECKED)
-				{
-					Rect DrawingRect = Rect(
-						MulDiv(124, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI),
-						MulDiv(20, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI),
-						MulDiv(250, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI),
-						MulDiv(250, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI));
-
-					graphics.DrawEllipse(&GdiPen, DrawingRect);
-				}
-			}
-
-			// *** GDI Plus Done! *** //
+			MAIN_WINDOW_OnPaint(pThisWindow, bufferDC);
 		}
 
 		BitBlt(WinDC, 0, 0, ps.rcPaint.right, ps.rcPaint.bottom, bufferDC, 0, 0, SRCCOPY);
@@ -396,7 +411,11 @@ LRESULT CALLBACK MainWindow_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 	{
 		WinDC = (HDC)wParam;
 
-		// Code goes here ...
+		pThisWindow = (MAIN_WINDOW*)GetWindowLongPtr(hWnd, 0);
+		if (pThisWindow != NULL)
+		{
+			MAIN_WINDOW_OnPaint(pThisWindow, WinDC);
+		}
 
 		return 0;
 	}
@@ -407,6 +426,8 @@ LRESULT CALLBACK MainWindow_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 		{
 			pThisWindow->handleResize = false;
 			JustCtrl_WindowResizeHandler(hWnd, pThisWindow->control_linked_list, pThisWindow->control_count, HIWORD(wParam), true, (RECT*)lParam);
+			pThisWindow->DPI = (UINT)HIWORD(wParam);
+			RedrawWindow(hWnd, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN);
 			pThisWindow->handleResize = true;
 		}
 
@@ -419,10 +440,11 @@ LRESULT CALLBACK MainWindow_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 		{
 			if (pThisWindow->handleResize)
 			{
-				UINT monitorDpi = JustCtrl_GetDpiForWindow(hWnd);
 				RECT winArea;
+				UINT monitorDpi = JustCtrl_GetDpiForWindow(hWnd);
 				GetWindowRect(hWnd, &winArea);
 				JustCtrl_WindowResizeHandler(hWnd, pThisWindow->control_linked_list, pThisWindow->control_count, monitorDpi, false, &winArea);
+				RedrawWindow(hWnd, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN);
 			}
 		}
 
@@ -489,7 +511,7 @@ LRESULT CALLBACK MainWindow_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 			if ((wmEvent == CHECKBOX_CLICKED) || (RADIOBUTTON_CLICKED))
 			{
 				// Tell the main window to redraw itself!
-				InvalidateRect(hWnd, NULL, FALSE);
+				RedrawWindow(hWnd, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN);
 			}
 			break;
 		}
@@ -520,7 +542,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	// Init custom window classes.
 
-	if (!MAIN_WINDOW::Init(MainWindow_WndProc, hInstance))
+	if (!MAIN_WINDOW::Init(MAIN_WINDOW_WndProc, hInstance))
 	{
 		MessageBox(0, L"The MAIN_WINDOW form failed to initialize, exiting the app!", L"Error!", MB_OK);
 		return 0;
