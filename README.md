@@ -32,10 +32,10 @@ LICENSE TERMS
 ## Screenshots
 
 Demo application screenshot
-![Screenshot](https://github.com/sullewarehouse/JustCtrl/screenshots/BasicControls.png)
+![Screenshot](https://github.com/sullewarehouse/JustCtrl/raw/main/screenshots/BasicControls.png)
 
 Demo application demonstrating transparency of custom controls
-![Screenshot](https://github.com/sullewarehouse/JustCtrl/screenshots/TransparentBasicControls.png)
+![Screenshot](https://github.com/sullewarehouse/JustCtrl/raw/main/screenshots/TransparentBasicControls.png)
 
 # Contributing
 Please email feature requests to sullewarehouse@gmail.com with the title "JustCtrl Feature Request" and a detailed description of what you want done. If you are a business or independent contractor that would like to pay for a feature or custom controls please include that in the e-mail and we will provide cost estimates.
