@@ -226,7 +226,7 @@ double WINAPI JustCtrl_AlignToDipsReturnPixels(double x, int* pDips, int monitor
 
 	if (round_mode > 0) x = ceil(x);
 	else if (round_mode < 0) x = floor(x);
-	else x = round(x);
+	else x = floor(x + 0.5);
 
 	if (pDips) *pDips = (int)x;
 	x = JustCtrl_DipsToPixels(x, monitorDpi);

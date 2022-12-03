@@ -109,7 +109,7 @@ void WINAPI DrawRadioButtonCtrl(HWND hWnd, HDC hDC)
 
 	GetTextExtentPoint32(hDC, L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 52, &size);
 	averageWidth = (size.cx / 26 + 1) / 2;
-	radioButtonSpacing = ceil(MulDiv(12, (int)averageWidth, 4));
+	radioButtonSpacing = MulDiv(12, (int)averageWidth, 4);
 
 	// Get the Text width.
 

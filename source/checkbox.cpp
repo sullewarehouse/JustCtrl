@@ -68,8 +68,8 @@ void WINAPI DrawCheckboxCtrl(HWND hWnd, HDC hDC)
 	HTHEME hTheme;
 	UINT dtFormat;
 	SIZE cbSize;
-	double averageWidth;
-	double checkboxSpacing;
+	int averageWidth;
+	int checkboxSpacing;
 	int min_y;
 
 	GetClientRect(hWnd, &ClientArea);
@@ -111,7 +111,7 @@ void WINAPI DrawCheckboxCtrl(HWND hWnd, HDC hDC)
 
 	GetTextExtentPoint32(hDC, L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 52, &size);
 	averageWidth = (size.cx / 26 + 1) / 2;
-	checkboxSpacing = ceil(MulDiv(12, (int)averageWidth, 4));
+	checkboxSpacing = MulDiv(12, (int)averageWidth, 4);
 
 	// Get the Text width.
 
@@ -444,8 +444,8 @@ SIZE WINAPI JustCtrl_GetCheckboxMinimumSize(HWND hWnd)
 	DWORD dwStyle;
 	DWORD dwStyleEx;
 	SIZE cbSize;
-	double averageWidth;
-	double checkboxSpacing;
+	int averageWidth;
+	int checkboxSpacing;
 	int borderX;
 	int borderY;
 
@@ -464,7 +464,7 @@ SIZE WINAPI JustCtrl_GetCheckboxMinimumSize(HWND hWnd)
 
 	GetTextExtentPoint32(dc, L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 52, &size);
 	averageWidth = (size.cx / 26 + 1) / 2;
-	checkboxSpacing = ceil(MulDiv(12, (int)averageWidth, 4));
+	checkboxSpacing = MulDiv(12, (int)averageWidth, 4);
 
 	// Get the Text width.
 
