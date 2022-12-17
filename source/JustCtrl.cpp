@@ -148,6 +148,14 @@ DpiAwarenessSet:
 		return false;
 	}
 
+	if (!JustCtrl_InitTabWindow(hInstance))
+	{
+		if (report)
+			MessageBox(NULL, L"Failed to register the JustCtrl_TabWindow class.", L"Error!", MB_OK);
+
+		return false;
+	}
+
 	return true;
 }
 
@@ -542,7 +550,7 @@ void WINAPI JustCtrl_ResizeControls(HWND hWnd, FORM_CTRL* pControl_Linked_List, 
 		else
 			height = ((parentClientArea.bottom - parentClientArea.top) - y) - MulDiv(pFormCtrl->hOffset, monitorDpi, JUSTCTRL_APPLICATION_DPI);
 
-		DeferWindowPos(hdwp, pFormCtrl->hWnd, NULL, x, y, width, height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
+		DeferWindowPos(hdwp, pFormCtrl->hWnd, NULL, x, y, width, height, SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOACTIVATE);
 
 		pFormCtrl = pFormCtrl->next;
 	}

@@ -28,6 +28,7 @@
 #include "checkbox.h"
 #include "label.h"
 #include "radiobutton.h"
+#include "tabwindow.h"
 
 #pragma comment (lib, "Shell32.lib")
 #pragma comment (lib, "UxTheme.lib")

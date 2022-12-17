@@ -8,21 +8,36 @@ project ("JustCtrl")
 ADD_DEFINITIONS(-DUNICODE)
 ADD_DEFINITIONS(-D_UNICODE)
 
+# Check if the example argument is set
+if(DEFINED example)
+  # Add the value of the example argument to the project_source_files list
+  set(project_source_files ${project_source_files} ${example})
+else()
+  # Use main.cpp as the default source file
+  set(project_source_files ${project_source_files} "source/main.cpp")
+endif()
+
 file(GLOB project_include_files
+	"include/textbox.h"
+	"include/propertylist.h"
+	"include/tabwindow.h"
 	"include/label.h"
 	"include/checkbox.h"
 	"include/radiobutton.h"
 	"include/JustCtrl.h"
 )
 
-file(GLOB project_source_files
+file(GLOB source_files
+	"source/textbox.cpp"
+	"source/propertylist.cpp"
+	"source/tabwindow.cpp"
 	"source/label.cpp"
 	"source/checkbox.cpp"
 	"source/radiobutton.cpp"
 	"source/JustCtrl.cpp"
-	"source/main.cpp"
 )
 
+set(project_source_files ${project_source_files} ${source_files})
 add_executable(JustCtrl WIN32 ${project_include_files} ${project_source_files} ${APP_RESOURCE_FILE})
 
 target_include_directories(JustCtrl PRIVATE "include")

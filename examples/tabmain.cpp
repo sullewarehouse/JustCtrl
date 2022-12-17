@@ -17,14 +17,7 @@ using namespace Gdiplus;
 // Control ID's
 //
 
-#define IDC_CBHIDE                      0x0001
-#define IDC_LBCOLOR                     0x0002
-#define IDC_RBRED                       0x0003
-#define IDC_RBBLUE                      0x0004
-#define IDC_LBSHAPE                     0x0005
-#define IDC_RBTRIANGLE                  0x0006
-#define IDC_RBCIRCLE                    0x0007
-#define IDC_TABWINDOW                   0x0008
+#define IDC_TABWINDOW                   0x0001
 #define IDC_OKBTN                       0x0009
 
 class MAIN_WINDOW
@@ -36,13 +29,6 @@ public:
 	HINSTANCE hInstance;
 	HWND hWnd;
 	HBITMAP bitmapBuffer;
-	FORM_CTRL cbHide;
-	FORM_CTRL lbColor;
-	FORM_CTRL rbRed;
-	FORM_CTRL rbBlue;
-	FORM_CTRL lbShape;
-	FORM_CTRL rbTriangle;
-	FORM_CTRL rbCircle;
 	FORM_CTRL tabWindow;
 	FORM_CTRL OkBtn;
 	FORM_CTRL* control_linked_list;
@@ -81,6 +67,176 @@ bool MAIN_WINDOW::Init(WNDPROC WndProc, HINSTANCE hInstance)
 	return true;
 }
 
+void GetRoundRectPath(GraphicsPath* pPath, Rect r, int dia)
+{
+	// diameter can't exceed width or height
+	if (dia > r.Width)    dia = r.Width;
+	if (dia > r.Height)    dia = r.Height;
+
+	// define a corner 
+	Rect Corner(r.X, r.Y, dia, dia);
+
+	// begin path
+	pPath->Reset();
+
+	// top left
+	pPath->AddArc(Corner, 180, 90);
+
+	// tweak needed for radius of 10 (dia of 20)
+	if (dia == 20)
+	{
+		Corner.Width += 1;
+		Corner.Height += 1;
+		r.Width -= 1; r.Height -= 1;
+	}
+
+	// top right
+	Corner.X += (r.Width - dia - 1);
+	pPath->AddArc(Corner, 270, 90);
+
+	// bottom right
+	Corner.Y += (r.Height - dia - 1);
+	pPath->AddArc(Corner, 0, 90);
+
+	// bottom left
+	Corner.X -= (r.Width - dia - 1);
+	pPath->AddArc(Corner, 90, 90);
+
+	// end path
+	pPath->CloseFigure();
+}
+
+void FillRoundRect(Graphics* pGraphics, Rect r, Brush* pBrush, Color border, int radius, int width)
+{
+	int dia = 2 * radius;
+
+	// set to pixel mode
+	int oldPageUnit = pGraphics->SetPageUnit(UnitPixel);
+
+	// define the pen
+	Pen pen(border, 1);
+	pen.SetAlignment(PenAlignmentCenter);
+
+	// get the corner path
+	GraphicsPath path;
+
+	// get path
+	GetRoundRectPath(&path, r, dia);
+
+	// fill
+	pGraphics->FillPath(pBrush, &path);
+
+	// draw the border last so it will be on top
+	pGraphics->DrawPath(&pen, &path);
+
+	// if width > 1
+	for (int i = 1; i < width; i++)
+	{
+		// left stroke
+		r.Inflate(-1, 0);
+		// get the path
+		GetRoundRectPath(&path, r, dia);
+
+		// draw the round rect
+		pGraphics->DrawPath(&pen, &path);
+
+		// up stroke
+		r.Inflate(0, -1);
+
+		// get the path
+		GetRoundRectPath(&path, r, dia);
+
+		// draw the round rect
+		pGraphics->DrawPath(&pen, &path);
+	}
+
+	// restore page unit
+	pGraphics->SetPageUnit((Unit)oldPageUnit);
+}
+
+void DrawCloseBox(HDC WinDC, RECT* pContainer, bool bDisabled, bool bHighLight, bool bPressed, UINT DPI)
+{
+	int borderThickness;
+	Gdiplus::Point pt[3];
+	Gdiplus::REAL lineThickness;
+	Gdiplus::Color lineColor;
+	Gdiplus::Color gdiFillColor;
+	Gdiplus::Brush* gdiBrush;
+	Gdiplus::Rect btnRt;
+
+	borderThickness = (int)JustCtrl_DipsToPixels(1, DPI);
+	lineThickness = (Gdiplus::REAL)JustCtrl_DipsToPixels(1.5F, DPI);
+
+	int innerOffset = (int)JustCtrl_DipsToPixels(6, DPI);
+	int innerOffset2 = (int)JustCtrl_DipsToPixels(1, DPI);
+
+	lineColor = Gdiplus::Color(255, 35, 35, 35);
+
+	Graphics graphics(WinDC);
+	Pen GdiPen(lineColor, lineThickness);
+
+	graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+
+	if (bHighLight)
+	{
+		btnRt.X = pContainer->left + innerOffset2;
+		btnRt.Y = pContainer->top + innerOffset2;
+		btnRt.Width = (pContainer->right - pContainer->left) - (innerOffset2 * 2);
+		btnRt.Height = (pContainer->bottom - pContainer->top) - (innerOffset2 * 2);
+
+		gdiFillColor = Gdiplus::Color(255, 204, 204, 204);
+		gdiBrush = new Gdiplus::SolidBrush(gdiFillColor);
+		FillRoundRect(&graphics, btnRt, gdiBrush, Gdiplus::Color(255, 204, 204, 204), 3, borderThickness);
+		delete gdiBrush;
+	}
+
+	pt[0].X = pContainer->left + innerOffset;
+	pt[0].Y = pContainer->top + innerOffset;
+	pt[1].X = pContainer->right - innerOffset;
+	pt[1].Y = pContainer->bottom - innerOffset;
+	graphics.DrawLines(&GdiPen, pt, 2);
+
+	pt[0].X = pContainer->right - innerOffset;
+	pt[0].Y = pContainer->top + innerOffset;
+	pt[1].X = pContainer->left + innerOffset;
+	pt[1].Y = pContainer->bottom - innerOffset;
+	graphics.DrawLines(&GdiPen, pt, 2);
+}
+
+void TabButtonEventHandler(HWND hWnd, ULONG tabIndex, ULONG btnIndex, ULONG code, WPARAM wParam)
+{
+	switch (code)
+	{
+	case TABWINDOW_BT_PAINT:
+	{
+		RECT drawRt;
+
+		SendMessage(hWnd, TABWINDOW_GETITEMRECT, MAKEWPARAM(tabIndex, TABWINDOW_IR_BUTTON_BOUNDS + btnIndex), (LPARAM)&drawRt);
+
+		UINT DPI = JustCtrl_GetDpiForWindow(hWnd);
+
+		DrawCloseBox((HDC)wParam, &drawRt, false, false, false, DPI);
+
+		return;
+	}
+	case TABWINDOW_BT_LCLICK:
+	{
+		if (btnIndex == 0)
+		{
+			MessageBox(NULL, L"button 0 pressed", L"OK", MB_OK);
+		}
+		else if (btnIndex == 1)
+		{
+			MessageBox(NULL, L"button 1 pressed", L"OK", MB_OK);
+		}
+
+		return;
+	}
+	default:
+		break;
+	}
+}
+
 MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 {
 	HWND hWnd;
@@ -101,149 +257,31 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 	if (!nwc)
 		return nullptr;
 
-	// Create a JustCtrl Checkbox.
+	// Create a JustCtrl TabWindow.
 
-	nwc->cbHide.x = 8;
-	nwc->cbHide.y = 8;
-	nwc->cbHide.width = 100;
-	nwc->cbHide.height = 15;
+	nwc->tabWindow.x = 8;
+	nwc->tabWindow.y = 8;
+	nwc->tabWindow.width = 350;
+	nwc->tabWindow.height = 284;
 
-	x = MulDiv(nwc->cbHide.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	y = MulDiv(nwc->cbHide.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	width = MulDiv(nwc->cbHide.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	height = MulDiv(nwc->cbHide.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	x = MulDiv(nwc->tabWindow.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	y = MulDiv(nwc->tabWindow.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	width = MulDiv(nwc->tabWindow.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
+	height = MulDiv(nwc->tabWindow.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
 
-	nwc->cbHide.hWnd = CreateWindowEx(0, L"JustCtrl_Checkbox", L"Hide Shape",
-		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_TABSTOP | CHECKBOX_VCENTER | CHECKBOX_AUTO,
-		x, y, width, height, nwc->hWnd, (HMENU)IDC_CBHIDE, hInstance, NULL);
+	nwc->tabWindow.hWnd = CreateWindowEx(0, L"JustCtrl_TabWindow", NULL,
+		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | TABWINDOW_BORDER,
+		x, y, width, height, nwc->hWnd, (HMENU)IDC_TABWINDOW, hInstance, NULL);
 
-	JustCtrl_SetAnchors(&nwc->cbHide, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
-	JustCtrl_GetdefaultFont(&nwc->cbHide.lpFont, nwc->DPI);
-	JustCtrl_ResizeFont(nwc->cbHide.hWnd, nwc->DPI, &nwc->cbHide.lpFont);
+	JustCtrl_SetAnchors(&nwc->tabWindow, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT | JUSTCTRL_ANCHOR_RIGHT | JUSTCTRL_ANCHOR_BOTTOM, nwc->DPI);
+	JustCtrl_GetdefaultFont(&nwc->tabWindow.lpFont, nwc->DPI);
+	JustCtrl_ResizeFont(nwc->tabWindow.hWnd, nwc->DPI, &nwc->tabWindow.lpFont);
 
-	// Create a JustCtrl Label 'Color:'.
+	TABWINDOW_BUTTON tabButton = { TabButtonEventHandler, 0, 0 };
+	TabWindow_CreateButton(nwc->tabWindow.hWnd, 0, &tabButton);
 
-	nwc->lbColor.x = 8;
-	nwc->lbColor.y = 31;
-	nwc->lbColor.width = 100;
-	nwc->lbColor.height = 15;
-
-	x = MulDiv(nwc->lbColor.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	y = MulDiv(nwc->lbColor.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	width = MulDiv(nwc->lbColor.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	height = MulDiv(nwc->lbColor.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-
-	nwc->lbColor.hWnd = CreateWindowEx(0, L"JustCtrl_Label", L"Color:",
-		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | LABEL_VCENTER,
-		x, y, width, height, nwc->hWnd, (HMENU)IDC_LBCOLOR, hInstance, NULL);
-
-	JustCtrl_SetAnchors(&nwc->lbColor, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
-	JustCtrl_GetdefaultFont(&nwc->lbColor.lpFont, nwc->DPI);
-	JustCtrl_ResizeFont(nwc->lbColor.hWnd, nwc->DPI, &nwc->lbColor.lpFont);
-
-	// Create 2 JustCtrl RadioButtons (Red, Blue).
-
-	nwc->rbRed.x = 8;
-	nwc->rbRed.y = 54;
-	nwc->rbRed.width = 100;
-	nwc->rbRed.height = 15;
-
-	x = MulDiv(nwc->rbRed.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	y = MulDiv(nwc->rbRed.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	width = MulDiv(nwc->rbRed.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	height = MulDiv(nwc->rbRed.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-
-	nwc->rbRed.hWnd = CreateWindowEx(0, L"JustCtrl_RadioButton", L"Red",
-		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_GROUP | WS_TABSTOP | RADIOBUTTON_VCENTER | RADIOBUTTON_AUTO,
-		x, y, width, height, nwc->hWnd, (HMENU)IDC_RBRED, hInstance, NULL);
-
-	JustCtrl_SetAnchors(&nwc->rbRed, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
-	JustCtrl_GetdefaultFont(&nwc->rbRed.lpFont, nwc->DPI);
-	JustCtrl_ResizeFont(nwc->rbRed.hWnd, nwc->DPI, &nwc->rbRed.lpFont);
-
-	RadioButton_SetCheck(nwc->rbRed.hWnd, RADIOBUTTON_CHECKED, true);
-
-	// ---- Blue ---- //
-
-	nwc->rbBlue.x = 8;
-	nwc->rbBlue.y = 77;
-	nwc->rbBlue.width = 100;
-	nwc->rbBlue.height = 15;
-
-	x = MulDiv(nwc->rbBlue.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	y = MulDiv(nwc->rbBlue.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	width = MulDiv(nwc->rbBlue.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	height = MulDiv(nwc->rbBlue.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-
-	nwc->rbBlue.hWnd = CreateWindowEx(0, L"JustCtrl_RadioButton", L"Blue",
-		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | RADIOBUTTON_VCENTER | RADIOBUTTON_AUTO,
-		x, y, width, height, nwc->hWnd, (HMENU)IDC_RBBLUE, hInstance, NULL);
-
-	JustCtrl_SetAnchors(&nwc->rbBlue, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
-	JustCtrl_GetdefaultFont(&nwc->rbBlue.lpFont, nwc->DPI);
-	JustCtrl_ResizeFont(nwc->rbBlue.hWnd, nwc->DPI, &nwc->rbBlue.lpFont);
-
-	// Create a JustCtrl Label 'Shape:'.
-
-	nwc->lbShape.x = 8;
-	nwc->lbShape.y = 100;
-	nwc->lbShape.width = 100;
-	nwc->lbShape.height = 15;
-
-	x = MulDiv(nwc->lbShape.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	y = MulDiv(nwc->lbShape.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	width = MulDiv(nwc->lbShape.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	height = MulDiv(nwc->lbShape.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-
-	nwc->lbShape.hWnd = CreateWindowEx(0, L"JustCtrl_Label", L"Shape:",
-		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | LABEL_VCENTER,
-		x, y, width, height, nwc->hWnd, (HMENU)IDC_LBSHAPE, hInstance, NULL);
-
-	JustCtrl_SetAnchors(&nwc->lbShape, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
-	JustCtrl_GetdefaultFont(&nwc->lbShape.lpFont, nwc->DPI);
-	JustCtrl_ResizeFont(nwc->lbShape.hWnd, nwc->DPI, &nwc->lbShape.lpFont);
-
-	// Create 2 JustCtrl RadioButtons (Triangle, Circle).
-
-	nwc->rbTriangle.x = 8;
-	nwc->rbTriangle.y = 123;
-	nwc->rbTriangle.width = 100;
-	nwc->rbTriangle.height = 15;
-
-	x = MulDiv(nwc->rbTriangle.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	y = MulDiv(nwc->rbTriangle.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	width = MulDiv(nwc->rbTriangle.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	height = MulDiv(nwc->rbTriangle.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-
-	nwc->rbTriangle.hWnd = CreateWindowEx(0, L"JustCtrl_RadioButton", L"Triangle",
-		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_GROUP | WS_TABSTOP | RADIOBUTTON_VCENTER | RADIOBUTTON_AUTO,
-		x, y, width, height, nwc->hWnd, (HMENU)IDC_RBTRIANGLE, hInstance, NULL);
-
-	JustCtrl_SetAnchors(&nwc->rbTriangle, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
-	JustCtrl_GetdefaultFont(&nwc->rbTriangle.lpFont, nwc->DPI);
-	JustCtrl_ResizeFont(nwc->rbTriangle.hWnd, nwc->DPI, &nwc->rbTriangle.lpFont);
-
-	// ---- Circle ---- //
-
-	nwc->rbCircle.x = 8;
-	nwc->rbCircle.y = 146;
-	nwc->rbCircle.width = 100;
-	nwc->rbCircle.height = 15;
-
-	x = MulDiv(nwc->rbCircle.x, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	y = MulDiv(nwc->rbCircle.y, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	width = MulDiv(nwc->rbCircle.width, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-	height = MulDiv(nwc->rbCircle.height, nwc->DPI, JUSTCTRL_APPLICATION_DPI);
-
-	nwc->rbCircle.hWnd = CreateWindowEx(0, L"JustCtrl_RadioButton", L"Circle",
-		WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | RADIOBUTTON_VCENTER | RADIOBUTTON_AUTO,
-		x, y, width, height, nwc->hWnd, (HMENU)IDC_RBCIRCLE, hInstance, NULL);
-
-	JustCtrl_SetAnchors(&nwc->rbCircle, JUSTCTRL_ANCHOR_TOP | JUSTCTRL_ANCHOR_LEFT, nwc->DPI);
-	JustCtrl_GetdefaultFont(&nwc->rbCircle.lpFont, nwc->DPI);
-	JustCtrl_ResizeFont(nwc->rbCircle.hWnd, nwc->DPI, &nwc->rbCircle.lpFont);
-
-	RadioButton_SetCheck(nwc->rbCircle.hWnd, RADIOBUTTON_CHECKED, true);
+	TabWindow_InsertTab(nwc->tabWindow.hWnd, -1, L"Drawing");
+	TabWindow_InsertTab(nwc->tabWindow.hWnd, -1, L"Math");
 
 	// Create a normal native windows button.
 
@@ -267,17 +305,10 @@ MAIN_WINDOW* MAIN_WINDOW::New(HINSTANCE hInstance)
 
 	// Setup the control linked list and count var.
 
-	nwc->control_linked_list = &nwc->cbHide;
-	nwc->cbHide.next = &nwc->lbColor;
-	nwc->lbColor.next = &nwc->rbRed;
-	nwc->rbRed.next = &nwc->rbBlue;
-	nwc->rbBlue.next = &nwc->lbShape;
-	nwc->lbShape.next = &nwc->rbTriangle;
-	nwc->rbTriangle.next = &nwc->rbCircle;
-	nwc->rbCircle.next = &nwc->tabWindow;
+	nwc->control_linked_list = &nwc->tabWindow;
 	nwc->tabWindow.next = &nwc->OkBtn;
 
-	nwc->control_count = 9;
+	nwc->control_count = 2;
 
 	// Center and show the Main window.
 
@@ -294,53 +325,6 @@ void WINAPI MAIN_WINDOW_OnPaint(MAIN_WINDOW* pThisWindow, HDC hDC)
 	HBRUSH hBrush = CreateSolidBrush(RGB(240, 240, 240));
 	FillRect(hDC, &clientRect, hBrush);
 	DeleteObject(hBrush);
-
-	// *** GDI Plus drawing *** //
-
-	Graphics graphics(hDC);
-	Color lineColor;
-
-	if (Checkbox_GetCheck(pThisWindow->cbHide.hWnd) != CHECKBOX_CHECKED)
-	{
-		if (RadioButton_GetCheck(pThisWindow->rbRed.hWnd) == CHECKBOX_CHECKED)
-			lineColor = Gdiplus::Color(255, 255, 0, 0);
-		else if (RadioButton_GetCheck(pThisWindow->rbBlue.hWnd) == CHECKBOX_CHECKED)
-			lineColor = Gdiplus::Color(255, 0, 0, 255);
-
-		Pen GdiPen(lineColor, (Gdiplus::REAL)MulDiv(2, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI));
-		GdiPen.SetAlignment(PenAlignmentCenter);
-		graphics.SetSmoothingMode(SmoothingModeAntiAlias);
-
-		if (RadioButton_GetCheck(pThisWindow->rbTriangle.hWnd) == CHECKBOX_CHECKED)
-		{
-			const int x = 124;
-			const int y = 20;
-			const int width = 250;
-			const int height = 250;
-
-			Point drawingPoints[] = {
-				Point(MulDiv(x, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI), MulDiv(y + height, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI)),
-				Point(MulDiv(x + (width / 2), pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI), MulDiv(y, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI)),
-				Point(MulDiv(x + width, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI), MulDiv(y + height, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI)) };
-
-			graphics.DrawPolygon(&GdiPen, drawingPoints, 3);
-		}
-		else if (RadioButton_GetCheck(pThisWindow->rbCircle.hWnd) == CHECKBOX_CHECKED)
-		{
-			const int x = 124;
-			const int y = 20;
-			const int width = 250;
-			const int height = 250;
-
-			Rect DrawingRect = Rect(
-				MulDiv(x, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI),
-				MulDiv(y, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI),
-				MulDiv(width, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI),
-				MulDiv(height, pThisWindow->DPI, JUSTCTRL_APPLICATION_DPI));
-
-			graphics.DrawEllipse(&GdiPen, DrawingRect);
-		}
-	}
 }
 
 LRESULT CALLBACK MAIN_WINDOW_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -624,25 +608,6 @@ LRESULT CALLBACK MAIN_WINDOW_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 		int wmEvent = HIWORD(wParam);
 
 		// HWND ctrl_hWnd = (HWND)lParam; // Not needed for this example.
-
-		switch (wmId)
-		{
-		case IDC_CBHIDE:
-		case IDC_RBRED:
-		case IDC_RBBLUE:
-		case IDC_RBTRIANGLE:
-		case IDC_RBCIRCLE:
-		{
-			if ((wmEvent == CHECKBOX_CLICKED) || (RADIOBUTTON_CLICKED))
-			{
-				// Tell the main window to redraw itself!
-				RedrawWindow(hWnd, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN);
-			}
-			break;
-		}
-		default:
-			break;
-		}
 
 		break;
 	}

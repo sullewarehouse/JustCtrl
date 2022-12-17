@@ -17,6 +17,7 @@ struct JUSTCTRL_CHECKBOX
 	HWND hWnd;
 	HINSTANCE hInstance;
 	UINT DPI;
+	HBITMAP bitmapBuffer;
 	HFONT hFont;
 	bool lbuttonDown;
 	bool trackingMouse;
@@ -53,7 +54,7 @@ int WINAPI GetCheckboxStyle(HWND hWnd)
 	return cbStyle;
 }
 
-void WINAPI DrawCheckboxCtrl(HWND hWnd, HDC hDC)
+void WINAPI Checkbox_OnPaint(JUSTCTRL_CHECKBOX* pCheckbox, HDC hDC)
 {
 	HWND hWndParent;
 	RECT rect;
@@ -72,14 +73,14 @@ void WINAPI DrawCheckboxCtrl(HWND hWnd, HDC hDC)
 	int checkboxSpacing;
 	int min_y;
 
-	GetClientRect(hWnd, &ClientArea);
-	hWndParent = GetParent(hWnd);
+	GetClientRect(pCheckbox->hWnd, &ClientArea);
+	hWndParent = GetParent(pCheckbox->hWnd);
 
 	JUSTCTRL_CTLCOLOR ctlColor;
 	memset(&ctlColor, 0, sizeof(JUSTCTRL_CTLCOLOR));
 	ctlColor.nmh.code = CHECKBOX_CTLCOLOR;
-	ctlColor.nmh.idFrom = GetDlgCtrlID(hWnd);
-	ctlColor.nmh.hwndFrom = hWnd;
+	ctlColor.nmh.idFrom = GetDlgCtrlID(pCheckbox->hWnd);
+	ctlColor.nmh.hwndFrom = pCheckbox->hWnd;
 	ctlColor.hDC = hDC;
 	SendMessage(hWndParent, WM_NOTIFY, ctlColor.nmh.idFrom, (LPARAM)&ctlColor);
 
@@ -92,21 +93,21 @@ void WINAPI DrawCheckboxCtrl(HWND hWnd, HDC hDC)
 	{
 		SetBkMode(hDC, TRANSPARENT);
 
-		if (!IsWindowEnabled(hWnd))
+		if (!IsWindowEnabled(pCheckbox->hWnd))
 			SetTextColor(hDC, GetSysColor(COLOR_GRAYTEXT));
 		else
 			SetTextColor(hDC, GetSysColor(COLOR_WINDOWTEXT));
 
-		DrawThemeParentBackground(hWnd, hDC, NULL);
+		DrawThemeParentBackground(pCheckbox->hWnd, hDC, NULL);
 	}
 
-	hTheme = OpenThemeData(hWnd, L"BUTTON");
+	hTheme = OpenThemeData(pCheckbox->hWnd, L"BUTTON");
 	if (!hTheme) return;
 
-	hFont = (HFONT)SendMessage(hWnd, WM_GETFONT, 0, 0);
+	hFont = (HFONT)SendMessage(pCheckbox->hWnd, WM_GETFONT, 0, 0);
 	hOldFont = (HFONT)SelectObject(hDC, hFont);
 
-	cbStyle = GetCheckboxStyle(hWnd);
+	cbStyle = GetCheckboxStyle(pCheckbox->hWnd);
 	GetThemePartSize(hTheme, hDC, BP_CHECKBOX, cbStyle, NULL, TS_TRUE, &cbSize);
 
 	GetTextExtentPoint32(hDC, L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 52, &size);
@@ -120,11 +121,11 @@ void WINAPI DrawCheckboxCtrl(HWND hWnd, HDC hDC)
 	rect.top = 0;
 	rect.bottom = 0;
 
-	strLength = GetWindowTextLength(hWnd) + 1;
+	strLength = (size_t)GetWindowTextLength(pCheckbox->hWnd) + 1;
 	pStrText = (WCHAR*)malloc(strLength * sizeof(WCHAR));
 	if (pStrText != NULL)
 	{
-		if (GetWindowText(hWnd, pStrText, (int)strLength) != 0)
+		if (GetWindowText(pCheckbox->hWnd, pStrText, (int)strLength) != 0)
 		{
 			DrawText(hDC, pStrText, -1, &rect, DT_CALCRECT | DT_SINGLELINE | DT_LEFT);
 		}
@@ -135,7 +136,7 @@ void WINAPI DrawCheckboxCtrl(HWND hWnd, HDC hDC)
 	rect.left = 0;
 	rect.right = rect.left + cbSize.cx;
 
-	dwStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
+	dwStyle = (DWORD)GetWindowLongPtr(pCheckbox->hWnd, GWL_STYLE);
 	if ((dwStyle & 0x000C) == CHECKBOX_TOP)
 	{
 		rect.top = (cbSize.cy < min_y) ? ((min_y - cbSize.cy) / 2) : 0;
@@ -204,12 +205,6 @@ void WINAPI DrawCheckboxCtrl(HWND hWnd, HDC hDC)
 
 LRESULT CALLBACK Checkbox_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	HDC WinDC;
-	PAINTSTRUCT ps;
-	HDC bufferDC;
-	HBITMAP hMemoryBmp;
-	HBITMAP hOldBmp;
-
 	JUSTCTRL_CHECKBOX* pCheckbox;
 
 	switch (uMsg)
@@ -234,6 +229,9 @@ LRESULT CALLBACK Checkbox_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
 		pCheckbox = (JUSTCTRL_CHECKBOX*)GetWindowLongPtr(hWnd, 0);
 		if (pCheckbox != 0)
 		{
+			if (pCheckbox->bitmapBuffer) {
+				DeleteObject(pCheckbox->bitmapBuffer);
+			}
 			free(pCheckbox);
 		}
 		break;
@@ -247,7 +245,8 @@ LRESULT CALLBACK Checkbox_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
 			pCheckbox->DPI = JustCtrl_GetDpiForWindow(hWnd);
 			InvalidateRect(hWnd, NULL, FALSE);
 		}
-		break;
+		
+		return 0;
 	}
 	case WM_GETFONT:
 	{
@@ -268,29 +267,70 @@ LRESULT CALLBACK Checkbox_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
 	}
 	case WM_PAINT:
 	{
-		WinDC = BeginPaint(hWnd, &ps);
+		PAINTSTRUCT ps;
+		HDC winDC = BeginPaint(hWnd, &ps);
 
-		bufferDC = CreateCompatibleDC(WinDC);
-		hMemoryBmp = CreateCompatibleBitmap(WinDC, ps.rcPaint.right, ps.rcPaint.bottom);
-		hOldBmp = (HBITMAP)SelectObject(bufferDC, hMemoryBmp);
+		pCheckbox = (JUSTCTRL_CHECKBOX*)GetWindowLongPtr(hWnd, 0);
+		if (pCheckbox != NULL)
+		{
+			HDC bufferDC = CreateCompatibleDC(winDC);
+			HBITMAP hOldBmp = pCheckbox->bitmapBuffer;
+			pCheckbox->bitmapBuffer = CreateCompatibleBitmap(winDC, ps.rcPaint.right, ps.rcPaint.bottom);
 
-		DrawCheckboxCtrl(hWnd, bufferDC);
-		BitBlt(WinDC, 0, 0, ps.rcPaint.right, ps.rcPaint.bottom, bufferDC, 0, 0, SRCCOPY);
+			HBITMAP hDefaultBmp = NULL;
+			if (pCheckbox->bitmapBuffer) {
+				hDefaultBmp = (HBITMAP)SelectObject(bufferDC, pCheckbox->bitmapBuffer);
+				Checkbox_OnPaint(pCheckbox, bufferDC);
+				BitBlt(winDC, 0, 0, ps.rcPaint.right, ps.rcPaint.bottom, bufferDC, 0, 0, SRCCOPY);
+			}
 
-		SelectObject(bufferDC, hOldBmp);
-		DeleteObject(hMemoryBmp);
-		DeleteDC(bufferDC);
+			if (hOldBmp) {
+				DeleteObject(hOldBmp);
+			}
+			if (hDefaultBmp) {
+				SelectObject(bufferDC, hDefaultBmp);
+			}
+			DeleteDC(bufferDC);
+		}
 
 		EndPaint(hWnd, &ps);
-		break;
-	}
-	case WM_PRINTCLIENT:
-	{
-		WinDC = (HDC)wParam;
-
-		// Code goes here ...
 
 		return 0;
+	}
+	case WM_PRINT:
+	case WM_PRINTCLIENT:
+	{
+		HDC winDC = (HDC)wParam;
+		BOOL visible = true;
+
+		pCheckbox = (JUSTCTRL_CHECKBOX*)GetWindowLongPtr(hWnd, 0);
+		if (pCheckbox != NULL)
+		{
+			if ((lParam & PRF_CHECKVISIBLE) == PRF_CHECKVISIBLE) {
+				visible = IsWindowVisible(hWnd);
+			}
+
+			if (visible)
+			{
+				if ((lParam & PRF_CLIENT) == PRF_CLIENT)
+				{
+					RECT clientRt;
+					GetClientRect(hWnd, &clientRt);
+
+					HDC bufferDC = CreateCompatibleDC(winDC);
+					HBITMAP hOldBmp = (HBITMAP)SelectObject(bufferDC, pCheckbox->bitmapBuffer);
+
+					BitBlt(winDC, 0, 0, clientRt.right, clientRt.bottom, bufferDC, 0, 0, SRCCOPY);
+
+					SelectObject(bufferDC, hOldBmp);
+					DeleteDC(bufferDC);
+
+					return 0;
+				}
+			}
+		}
+
+		break;
 	}
 	case WM_MOUSEMOVE:
 	{
@@ -387,6 +427,15 @@ LRESULT CALLBACK Checkbox_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
 	case WM_SETFOCUS:
 	{
 		HWND hWndParent = GetParent(hWnd);
+
+		pCheckbox = (JUSTCTRL_CHECKBOX*)GetWindowLongPtr(hWnd, 0);
+		if (pCheckbox) {
+			if (!pCheckbox->hot) {
+				pCheckbox->hot = true;
+				InvalidateRect(hWnd, NULL, FALSE);
+			}
+		}
+
 		SendMessage(hWndParent, WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(hWnd), CHECKBOX_SETFOCUS), (LPARAM)hWnd);
 
 		return 0;
@@ -394,6 +443,15 @@ LRESULT CALLBACK Checkbox_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
 	case WM_KILLFOCUS:
 	{
 		HWND hWndParent = GetParent(hWnd);
+
+		pCheckbox = (JUSTCTRL_CHECKBOX*)GetWindowLongPtr(hWnd, 0);
+		if (pCheckbox) {
+			if (pCheckbox->hot) {
+				pCheckbox->hot = false;
+				InvalidateRect(hWnd, NULL, FALSE);
+			}
+		}
+
 		SendMessage(hWndParent, WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(hWnd), CHECKBOX_KILLFOCUS), (LPARAM)hWnd);
 
 		return 0;

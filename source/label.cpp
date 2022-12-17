@@ -17,12 +17,13 @@ struct JUSTCTRL_LABEL
 	HWND hWnd;
 	HINSTANCE hInstance;
 	UINT DPI;
+	HBITMAP bitmapBuffer;
 	HFONT hFont;
 	bool lbuttonDown;
 	bool trackingMouse;
 };
 
-void WINAPI DrawLabelCtrl(HWND hWnd, HDC hDC)
+void WINAPI Label_OnPaint(JUSTCTRL_LABEL* pLabel, HDC hDC)
 {
 	HWND hWndParent;
 	RECT rect;
@@ -35,14 +36,14 @@ void WINAPI DrawLabelCtrl(HWND hWnd, HDC hDC)
 	UINT dtFormat;
 	int min_y;
 
-	GetClientRect(hWnd, &ClientArea);
-	hWndParent = GetParent(hWnd);
+	GetClientRect(pLabel->hWnd, &ClientArea);
+	hWndParent = GetParent(pLabel->hWnd);
 
 	JUSTCTRL_CTLCOLOR ctlColor;
 	memset(&ctlColor, 0, sizeof(JUSTCTRL_CTLCOLOR));
 	ctlColor.nmh.code = LABEL_CTLCOLOR;
-	ctlColor.nmh.idFrom = GetDlgCtrlID(hWnd);
-	ctlColor.nmh.hwndFrom = hWnd;
+	ctlColor.nmh.idFrom = GetDlgCtrlID(pLabel->hWnd);
+	ctlColor.nmh.hwndFrom = pLabel->hWnd;
 	ctlColor.hDC = hDC;
 	SendMessage(hWndParent, WM_NOTIFY, ctlColor.nmh.idFrom, (LPARAM)&ctlColor);
 
@@ -55,15 +56,15 @@ void WINAPI DrawLabelCtrl(HWND hWnd, HDC hDC)
 	{
 		SetBkMode(hDC, TRANSPARENT);
 
-		if (!IsWindowEnabled(hWnd))
+		if (!IsWindowEnabled(pLabel->hWnd))
 			SetTextColor(hDC, GetSysColor(COLOR_GRAYTEXT));
 		else
 			SetTextColor(hDC, GetSysColor(COLOR_WINDOWTEXT));
 
-		DrawThemeParentBackground(hWnd, hDC, NULL);
+		DrawThemeParentBackground(pLabel->hWnd, hDC, NULL);
 	}
 
-	hFont = (HFONT)SendMessage(hWnd, WM_GETFONT, 0, 0);
+	hFont = (HFONT)SendMessage(pLabel->hWnd, WM_GETFONT, 0, 0);
 	hOldFont = (HFONT)SelectObject(hDC, hFont);
 
 	rect.left = 0;
@@ -71,11 +72,11 @@ void WINAPI DrawLabelCtrl(HWND hWnd, HDC hDC)
 	rect.top = 0;
 	rect.bottom = 0;
 
-	strLength = GetWindowTextLength(hWnd) + 1;
+	strLength = (size_t)GetWindowTextLength(pLabel->hWnd) + 1;
 	pStrText = (WCHAR*)malloc(strLength * sizeof(WCHAR));
 	if (pStrText != NULL)
 	{
-		if (GetWindowText(hWnd, pStrText, (int)strLength) != 0)
+		if (GetWindowText(pLabel->hWnd, pStrText, (int)strLength) != 0)
 		{
 			DrawText(hDC, pStrText, -1, &rect, DT_CALCRECT | DT_SINGLELINE | DT_LEFT);
 		}
@@ -83,7 +84,7 @@ void WINAPI DrawLabelCtrl(HWND hWnd, HDC hDC)
 
 	min_y = rect.bottom;
 
-	dwStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
+	dwStyle = (DWORD)GetWindowLongPtr(pLabel->hWnd, GWL_STYLE);
 
 	if (pStrText != NULL)
 	{
@@ -143,12 +144,6 @@ void WINAPI DrawLabelCtrl(HWND hWnd, HDC hDC)
 
 LRESULT CALLBACK Label_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	HDC WinDC;
-	PAINTSTRUCT ps;
-	HDC bufferDC;
-	HBITMAP hMemoryBmp;
-	HBITMAP hOldBmp;
-
 	JUSTCTRL_LABEL* pLabel;
 
 	switch (uMsg)
@@ -166,6 +161,7 @@ LRESULT CALLBACK Label_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 
 			SetWindowLongPtr(hWnd, 0, (LONG_PTR)pLabel);
 		}
+
 		break;
 	}
 	case WM_DESTROY:
@@ -173,8 +169,12 @@ LRESULT CALLBACK Label_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 		pLabel = (JUSTCTRL_LABEL*)GetWindowLongPtr(hWnd, 0);
 		if (pLabel != 0)
 		{
+			if (pLabel->bitmapBuffer) {
+				DeleteObject(pLabel->bitmapBuffer);
+			}
 			free(pLabel);
 		}
+
 		break;
 	}
 	case WM_SETFONT:
@@ -185,7 +185,8 @@ LRESULT CALLBACK Label_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 			pLabel->hFont = (HFONT)wParam;
 			pLabel->DPI = JustCtrl_GetDpiForWindow(hWnd);
 		}
-		break;
+
+		return 0;
 	}
 	case WM_GETFONT:
 	{
@@ -194,6 +195,7 @@ LRESULT CALLBACK Label_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 		{
 			return (LRESULT)pLabel->hFont;
 		}
+
 		return NULL;
 	}
 	case WM_ERASEBKGND:
@@ -206,29 +208,70 @@ LRESULT CALLBACK Label_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 	}
 	case WM_PAINT:
 	{
-		WinDC = BeginPaint(hWnd, &ps);
+		PAINTSTRUCT ps;
+		HDC winDC = BeginPaint(hWnd, &ps);
 
-		bufferDC = CreateCompatibleDC(WinDC);
-		hMemoryBmp = CreateCompatibleBitmap(WinDC, ps.rcPaint.right, ps.rcPaint.bottom);
-		hOldBmp = (HBITMAP)SelectObject(bufferDC, hMemoryBmp);
+		pLabel = (JUSTCTRL_LABEL*)GetWindowLongPtr(hWnd, 0);
+		if (pLabel != NULL)
+		{
+			HDC bufferDC = CreateCompatibleDC(winDC);
+			HBITMAP hOldBmp = pLabel->bitmapBuffer;
+			pLabel->bitmapBuffer = CreateCompatibleBitmap(winDC, ps.rcPaint.right, ps.rcPaint.bottom);
 
-		DrawLabelCtrl(hWnd, bufferDC);
-		BitBlt(WinDC, 0, 0, ps.rcPaint.right, ps.rcPaint.bottom, bufferDC, 0, 0, SRCCOPY);
+			HBITMAP hDefaultBmp = NULL;
+			if (pLabel->bitmapBuffer) {
+				hDefaultBmp = (HBITMAP)SelectObject(bufferDC, pLabel->bitmapBuffer);
+				Label_OnPaint(pLabel, bufferDC);
+				BitBlt(winDC, 0, 0, ps.rcPaint.right, ps.rcPaint.bottom, bufferDC, 0, 0, SRCCOPY);
+			}
 
-		SelectObject(bufferDC, hOldBmp);
-		DeleteObject(hMemoryBmp);
-		DeleteDC(bufferDC);
+			if (hOldBmp) {
+				DeleteObject(hOldBmp);
+			}
+			if (hDefaultBmp) {
+				SelectObject(bufferDC, hDefaultBmp);
+			}
+			DeleteDC(bufferDC);
+		}
 
 		EndPaint(hWnd, &ps);
-		break;
-	}
-	case WM_PRINTCLIENT:
-	{
-		WinDC = (HDC)wParam;
-
-		// Code goes here ...
 
 		return 0;
+	}
+	case WM_PRINT:
+	case WM_PRINTCLIENT:
+	{
+		HDC winDC = (HDC)wParam;
+		BOOL visible = true;
+
+		pLabel = (JUSTCTRL_LABEL*)GetWindowLongPtr(hWnd, 0);
+		if (pLabel != NULL)
+		{
+			if ((lParam & PRF_CHECKVISIBLE) == PRF_CHECKVISIBLE) {
+				visible = IsWindowVisible(hWnd);
+			}
+
+			if (visible)
+			{
+				if ((lParam & PRF_CLIENT) == PRF_CLIENT)
+				{
+					RECT clientRt;
+					GetClientRect(hWnd, &clientRt);
+
+					HDC bufferDC = CreateCompatibleDC(winDC);
+					HBITMAP hOldBmp = (HBITMAP)SelectObject(bufferDC, pLabel->bitmapBuffer);
+
+					BitBlt(winDC, 0, 0, clientRt.right, clientRt.bottom, bufferDC, 0, 0, SRCCOPY);
+
+					SelectObject(bufferDC, hOldBmp);
+					DeleteDC(bufferDC);
+
+					return 0;
+				}
+			}
+		}
+
+		break;
 	}
 	case WM_MOUSEMOVE:
 	{

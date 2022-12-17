@@ -17,6 +17,7 @@ struct JUSTCTRL_RADIOBUTTON
 	HWND hWnd;
 	HINSTANCE hInstance;
 	UINT DPI;
+	HBITMAP bitmapBuffer;
 	HFONT hFont;
 	bool lbuttonDown;
 	bool trackingMouse;
@@ -51,7 +52,7 @@ int WINAPI GetRadioButtonStyle(HWND hWnd)
 	return rbStyle;
 }
 
-void WINAPI DrawRadioButtonCtrl(HWND hWnd, HDC hDC)
+void WINAPI RadioButton_OnPaint(JUSTCTRL_RADIOBUTTON* pRadioButton, HDC hDC)
 {
 	HWND hWndParent;
 	RECT rect;
@@ -70,14 +71,14 @@ void WINAPI DrawRadioButtonCtrl(HWND hWnd, HDC hDC)
 	double radioButtonSpacing;
 	int min_y;
 
-	GetClientRect(hWnd, &ClientArea);
-	hWndParent = GetParent(hWnd);
+	GetClientRect(pRadioButton->hWnd, &ClientArea);
+	hWndParent = GetParent(pRadioButton->hWnd);
 
 	JUSTCTRL_CTLCOLOR ctlColor;
 	memset(&ctlColor, 0, sizeof(JUSTCTRL_CTLCOLOR));
 	ctlColor.nmh.code = RADIOBUTTON_CTLCOLOR;
-	ctlColor.nmh.idFrom = GetDlgCtrlID(hWnd);
-	ctlColor.nmh.hwndFrom = hWnd;
+	ctlColor.nmh.idFrom = GetDlgCtrlID(pRadioButton->hWnd);
+	ctlColor.nmh.hwndFrom = pRadioButton->hWnd;
 	ctlColor.hDC = hDC;
 	SendMessage(hWndParent, WM_NOTIFY, ctlColor.nmh.idFrom, (LPARAM)&ctlColor);
 
@@ -90,21 +91,21 @@ void WINAPI DrawRadioButtonCtrl(HWND hWnd, HDC hDC)
 	{
 		SetBkMode(hDC, TRANSPARENT);
 
-		if (!IsWindowEnabled(hWnd))
+		if (!IsWindowEnabled(pRadioButton->hWnd))
 			SetTextColor(hDC, GetSysColor(COLOR_GRAYTEXT));
 		else
 			SetTextColor(hDC, GetSysColor(COLOR_WINDOWTEXT));
 
-		DrawThemeParentBackground(hWnd, hDC, NULL);
+		DrawThemeParentBackground(pRadioButton->hWnd, hDC, NULL);
 	}
 
-	hTheme = OpenThemeData(hWnd, L"BUTTON");
+	hTheme = OpenThemeData(pRadioButton->hWnd, L"BUTTON");
 	if (!hTheme) return;
 
-	hFont = (HFONT)SendMessage(hWnd, WM_GETFONT, 0, 0);
+	hFont = (HFONT)SendMessage(pRadioButton->hWnd, WM_GETFONT, 0, 0);
 	hOldFont = (HFONT)SelectObject(hDC, hFont);
 
-	rbStyle = GetRadioButtonStyle(hWnd);
+	rbStyle = GetRadioButtonStyle(pRadioButton->hWnd);
 	GetThemePartSize(hTheme, hDC, BP_RADIOBUTTON, rbStyle, NULL, TS_TRUE, &cbSize);
 
 	GetTextExtentPoint32(hDC, L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 52, &size);
@@ -118,11 +119,11 @@ void WINAPI DrawRadioButtonCtrl(HWND hWnd, HDC hDC)
 	rect.top = 0;
 	rect.bottom = 0;
 
-	strLength = GetWindowTextLength(hWnd) + 1;
+	strLength = (size_t)GetWindowTextLength(pRadioButton->hWnd) + 1;
 	pStrText = (WCHAR*)malloc(strLength * sizeof(WCHAR));
 	if (pStrText != NULL)
 	{
-		if (GetWindowText(hWnd, pStrText, (int)strLength) != 0)
+		if (GetWindowText(pRadioButton->hWnd, pStrText, (int)strLength) != 0)
 		{
 			DrawText(hDC, pStrText, -1, &rect, DT_CALCRECT | DT_SINGLELINE | DT_LEFT);
 		}
@@ -133,7 +134,7 @@ void WINAPI DrawRadioButtonCtrl(HWND hWnd, HDC hDC)
 	rect.left = 0;
 	rect.right = rect.left + cbSize.cx;
 
-	dwStyle = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
+	dwStyle = (DWORD)GetWindowLongPtr(pRadioButton->hWnd, GWL_STYLE);
 	if ((dwStyle & 0x000C) == RADIOBUTTON_TOP)
 	{
 		rect.top = (cbSize.cy < min_y) ? ((min_y - cbSize.cy) / 2) : 0;
@@ -202,12 +203,6 @@ void WINAPI DrawRadioButtonCtrl(HWND hWnd, HDC hDC)
 
 LRESULT CALLBACK RadioButton_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	HDC WinDC;
-	PAINTSTRUCT ps;
-	HDC bufferDC;
-	HBITMAP hMemoryBmp;
-	HBITMAP hOldBmp;
-
 	JUSTCTRL_RADIOBUTTON* pRadioButton;
 
 	switch (uMsg)
@@ -232,6 +227,9 @@ LRESULT CALLBACK RadioButton_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 		pRadioButton = (JUSTCTRL_RADIOBUTTON*)GetWindowLongPtr(hWnd, 0);
 		if (pRadioButton != 0)
 		{
+			if (pRadioButton->bitmapBuffer) {
+				DeleteObject(pRadioButton->bitmapBuffer);
+			}
 			free(pRadioButton);
 		}
 		break;
@@ -245,7 +243,8 @@ LRESULT CALLBACK RadioButton_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 			pRadioButton->DPI = JustCtrl_GetDpiForWindow(hWnd);
 			InvalidateRect(hWnd, NULL, FALSE);
 		}
-		break;
+
+		return 0;
 	}
 	case WM_GETFONT:
 	{
@@ -254,6 +253,7 @@ LRESULT CALLBACK RadioButton_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 		{
 			return (LRESULT)pRadioButton->hFont;
 		}
+
 		return NULL;
 	}
 	case WM_ERASEBKGND:
@@ -266,29 +266,70 @@ LRESULT CALLBACK RadioButton_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 	}
 	case WM_PAINT:
 	{
-		WinDC = BeginPaint(hWnd, &ps);
+		PAINTSTRUCT ps;
+		HDC winDC = BeginPaint(hWnd, &ps);
 
-		bufferDC = CreateCompatibleDC(WinDC);
-		hMemoryBmp = CreateCompatibleBitmap(WinDC, ps.rcPaint.right, ps.rcPaint.bottom);
-		hOldBmp = (HBITMAP)SelectObject(bufferDC, hMemoryBmp);
+		pRadioButton = (JUSTCTRL_RADIOBUTTON*)GetWindowLongPtr(hWnd, 0);
+		if (pRadioButton != NULL)
+		{
+			HDC bufferDC = CreateCompatibleDC(winDC);
+			HBITMAP hOldBmp = pRadioButton->bitmapBuffer;
+			pRadioButton->bitmapBuffer = CreateCompatibleBitmap(winDC, ps.rcPaint.right, ps.rcPaint.bottom);
 
-		DrawRadioButtonCtrl(hWnd, bufferDC);
-		BitBlt(WinDC, 0, 0, ps.rcPaint.right, ps.rcPaint.bottom, bufferDC, 0, 0, SRCCOPY);
+			HBITMAP hDefaultBmp = NULL;
+			if (pRadioButton->bitmapBuffer) {
+				hDefaultBmp = (HBITMAP)SelectObject(bufferDC, pRadioButton->bitmapBuffer);
+				RadioButton_OnPaint(pRadioButton, bufferDC);
+				BitBlt(winDC, 0, 0, ps.rcPaint.right, ps.rcPaint.bottom, bufferDC, 0, 0, SRCCOPY);
+			}
 
-		SelectObject(bufferDC, hOldBmp);
-		DeleteObject(hMemoryBmp);
-		DeleteDC(bufferDC);
+			if (hOldBmp) {
+				DeleteObject(hOldBmp);
+			}
+			if (hDefaultBmp) {
+				SelectObject(bufferDC, hDefaultBmp);
+			}
+			DeleteDC(bufferDC);
+		}
 
 		EndPaint(hWnd, &ps);
-		break;
-	}
-	case WM_PRINTCLIENT:
-	{
-		WinDC = (HDC)wParam;
-
-		// Code goes here ...
 
 		return 0;
+	}
+	case WM_PRINT:
+	case WM_PRINTCLIENT:
+	{
+		HDC winDC = (HDC)wParam;
+		BOOL visible = true;
+
+		pRadioButton = (JUSTCTRL_RADIOBUTTON*)GetWindowLongPtr(hWnd, 0);
+		if (pRadioButton != NULL)
+		{
+			if ((lParam & PRF_CHECKVISIBLE) == PRF_CHECKVISIBLE) {
+				visible = IsWindowVisible(hWnd);
+			}
+
+			if (visible)
+			{
+				if ((lParam & PRF_CLIENT) == PRF_CLIENT)
+				{
+					RECT clientRt;
+					GetClientRect(hWnd, &clientRt);
+
+					HDC bufferDC = CreateCompatibleDC(winDC);
+					HBITMAP hOldBmp = (HBITMAP)SelectObject(bufferDC, pRadioButton->bitmapBuffer);
+
+					BitBlt(winDC, 0, 0, clientRt.right, clientRt.bottom, bufferDC, 0, 0, SRCCOPY);
+
+					SelectObject(bufferDC, hOldBmp);
+					DeleteDC(bufferDC);
+
+					return 0;
+				}
+			}
+		}
+
+		break;
 	}
 	case WM_MOUSEMOVE:
 	{
@@ -394,6 +435,15 @@ LRESULT CALLBACK RadioButton_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 	case WM_SETFOCUS:
 	{
 		HWND hWndParent = GetParent(hWnd);
+
+		pRadioButton = (JUSTCTRL_RADIOBUTTON*)GetWindowLongPtr(hWnd, 0);
+		if (pRadioButton) {
+			if (!pRadioButton->hot) {
+				pRadioButton->hot = true;
+				InvalidateRect(hWnd, NULL, FALSE);
+			}
+		}
+
 		SendMessage(hWndParent, WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(hWnd), RADIOBUTTON_SETFOCUS), (LPARAM)hWnd);
 
 		return 0;
@@ -401,6 +451,15 @@ LRESULT CALLBACK RadioButton_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 	case WM_KILLFOCUS:
 	{
 		HWND hWndParent = GetParent(hWnd);
+
+		pRadioButton = (JUSTCTRL_RADIOBUTTON*)GetWindowLongPtr(hWnd, 0);
+		if (pRadioButton) {
+			if (pRadioButton->hot) {
+				pRadioButton->hot = false;
+				InvalidateRect(hWnd, NULL, FALSE);
+			}
+		}
+
 		SendMessage(hWndParent, WM_COMMAND, MAKEWPARAM(GetDlgCtrlID(hWnd), RADIOBUTTON_KILLFOCUS), (LPARAM)hWnd);
 
 		return 0;
