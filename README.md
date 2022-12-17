@@ -9,7 +9,9 @@ Tested On:
 Example program included.
 - main.cpp
 
-More examples can be found in the examples folder. You can tell CMake to use a source file in the examples folder instead of using `main.cpp` by passing the `example` argument with the desired example source file. Like this: ```cmake -Dexample=examples/tabmain.cpp```.
+More examples can be found in the examples folder. You can tell CMake to use a source file in the examples folder instead of using `main.cpp` by passing the `example` argument with the desired example source file. Like this:
+
+```cmake -Dexample=examples/tabmain.cpp```.
 
 LICENSE TERMS
 =============
